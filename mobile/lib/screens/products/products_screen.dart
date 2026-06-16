@@ -1,0 +1,255 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/theme.dart';
+import '../../models/product.dart';
+import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
+import '../../widgets/eyeglaze_logo.dart';
+import 'product_detail_screen.dart';
+
+class ProductsScreen extends StatefulWidget {
+  final String? category;
+  const ProductsScreen({super.key, this.category});
+
+  @override
+  State<ProductsScreen> createState() => _ProductsScreenState();
+}
+
+class _ProductsScreenState extends State<ProductsScreen> {
+  List<Product> _products = [];
+  bool _loading = true;
+  String? _selectedCategory;
+  final _searchCtrl = TextEditingController();
+
+  final _categories = ['All', 'Prescription', 'Sunglasses', 'Blue Cut', 'Contact Lenses', 'Kids'];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = widget.category ?? 'All';
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _loading = true);
+    try {
+      final authService = context.read<AuthService>();
+      final api = ApiService(authService);
+      final data = await api.getProducts(
+        category: _selectedCategory == 'All' ? null : _selectedCategory,
+        search: _searchCtrl.text.isEmpty ? null : _searchCtrl.text,
+      );
+      final list = (data['products'] ?? data['data'] ?? []) as List;
+      setState(() => _products = list.map((p) => Product.fromJson(p)).toList());
+    } catch (e) {
+      // show demo products
+      setState(() => _products = _demoProducts());
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  List<Product> _demoProducts() => [
+        Product(
+          id: '1', sku: 'EG-2041', name: 'Matte Square Frame',
+          originalPrice: 999, sellingPrice: 1,
+          rating: 4.7, reviewCount: 198, soldCount: 400,
+          isBestseller: true,
+          colors: [ProductColor(name: 'Matte Black', hex: '#1A1A1A')],
+          frame: ProductFrame(type: 'Square', material: 'TR90 Premium', width: 140, lensWidth: 54, bridgeWidth: 18, templeLength: 145),
+        ),
+        Product(
+          id: '2', sku: 'EG-1067', name: 'Premium Clubmaster Frame',
+          originalPrice: 999, sellingPrice: 1,
+          rating: 4.5, reviewCount: 124, soldCount: 250,
+          isBestseller: false,
+          colors: [ProductColor(name: 'Black Gold', hex: '#C9A84C')],
+          frame: ProductFrame(type: 'Clubmaster', material: 'Premium Metal', width: 138, lensWidth: 52, bridgeWidth: 18, templeLength: 145),
+        ),
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.white), onPressed: () => Navigator.pop(context)),
+        title: const EyeGlazeLogo(),
+        centerTitle: true,
+        actions: [
+          IconButton(icon: const Icon(Icons.search, color: AppColors.white), onPressed: () {}),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _searchCtrl,
+              style: const TextStyle(color: AppColors.white),
+              decoration: InputDecoration(
+                hintText: 'Search glasses, sunglasses...',
+                prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.tune, color: AppColors.gold),
+                  onPressed: () {},
+                ),
+              ),
+              onSubmitted: (_) => _loadProducts(),
+            ),
+          ),
+          // Category chips
+          SizedBox(
+            height: 44,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: _categories.length,
+              itemBuilder: (_, i) {
+                final cat = _categories[i];
+                final isSelected = cat == _selectedCategory;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () { setState(() => _selectedCategory = cat); _loadProducts(); },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.gold : AppColors.card,
+                        border: Border.all(color: isSelected ? AppColors.gold : AppColors.border),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(cat, style: TextStyle(color: isSelected ? Colors.white : AppColors.muted, fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Product grid
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                : _products.isEmpty
+                    ? const Center(child: Text('No products found', style: AppTextStyles.muted))
+                    : GridView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.62,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                        itemCount: _products.length,
+                        itemBuilder: (_, i) => _ProductCard(
+                          product: _products[i],
+                          onTap: () => Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => ProductDetailScreen(product: _products[i]),
+                          )),
+                        ),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  final Product product;
+  final VoidCallback onTap;
+
+  const _ProductCard({required this.product, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final discount = ((product.originalPrice - product.sellingPrice) / product.originalPrice * 100).round();
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image area
+            Expanded(
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                    ),
+                    child: Center(
+                      child: Icon(Icons.visibility_outlined, color: AppColors.muted, size: 60),
+                    ),
+                  ),
+                  if (product.isBestseller)
+                    Positioned(
+                      top: 8, left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
+                        child: const Text('BESTSELLER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: GestureDetector(
+                      onTap: () {},
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(6)),
+                        child: const Text('Add +', style: TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Info
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(product.sku, style: const TextStyle(color: AppColors.muted, fontSize: 10)),
+                  Text(product.name, style: const TextStyle(color: AppColors.white, fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, color: AppColors.gold, size: 12),
+                      Text(' ${product.rating}', style: const TextStyle(color: AppColors.gold, fontSize: 11)),
+                      Text('  (${product.reviewCount})', style: const TextStyle(color: AppColors.muted, fontSize: 10)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text('₹${product.sellingPrice.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                      const SizedBox(width: 6),
+                      Text('₹${product.originalPrice.toInt()}', style: const TextStyle(color: AppColors.muted, decoration: TextDecoration.lineThrough, fontSize: 11)),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                        child: Text('$discount%', style: const TextStyle(color: AppColors.gold, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
