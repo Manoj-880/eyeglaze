@@ -10,7 +10,7 @@ const getSocketUrl = (apiUrl: string | undefined): string => {
   return normalized;
 };
 
-const socketUrl = getSocketUrl(import.meta.env.VITE_API_URL);
+const socketUrl = import.meta.env.VITE_SOCKET_URL || getSocketUrl(import.meta.env.VITE_API_URL);
 
 export const socket = io(socketUrl, {
   withCredentials: true,

@@ -54,7 +54,7 @@ app.get('/sitemap.xml', async (req, res, next) => {
     const allowedOrigins = process.env.CLIENT_URL
       ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
       : ['http://localhost:5173', 'https://web.eyeglaze.in'];
-    const clientUrl = allowedOrigins.find((url) => url !== '*') || 'https://eyeglaze.com';
+    const clientUrl = allowedOrigins.find((url) => url !== '*') || 'https://web.eyeglaze.in';
     const lastmod = new Date().toISOString().split('T')[0];
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
