@@ -6,7 +6,7 @@ let io: Server | null = null;
 export function initSocket(server: http.Server) {
   const allowedOrigins = process.env.CLIENT_URL
     ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
-    : ['http://localhost:5173'];
+    : ['http://localhost:5173', 'https://web.eyeglaze.in'];
 
   io = new Server(server, {
     cors: {

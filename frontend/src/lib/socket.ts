@@ -1,8 +1,16 @@
 import { io } from 'socket.io-client';
 
-const socketUrl = import.meta.env.VITE_API_URL 
-  ? import.meta.env.VITE_API_URL.replace('/api', '') 
-  : 'http://localhost:5000';
+const getSocketUrl = (apiUrl: string | undefined): string => {
+  if (!apiUrl) return 'http://localhost:5000';
+  // Remove trailing slashes first
+  const normalized = apiUrl.replace(/\/+$/, '');
+  if (normalized.endsWith('/api')) {
+    return normalized.slice(0, -4);
+  }
+  return normalized;
+};
+
+const socketUrl = getSocketUrl(import.meta.env.VITE_API_URL);
 
 export const socket = io(socketUrl, {
   withCredentials: true,

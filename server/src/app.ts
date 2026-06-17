@@ -32,7 +32,7 @@ const app = express();
 
 const allowedOrigins = process.env.CLIENT_URL
   ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
-  : ['http://localhost:5173'];
+  : ['http://localhost:5173', 'https://web.eyeglaze.in'];
 
 app.use(
   cors({
@@ -53,7 +53,7 @@ app.get('/sitemap.xml', async (req, res, next) => {
     const products = await Product.find({ isActive: true }).select('_id updatedAt').lean();
     const allowedOrigins = process.env.CLIENT_URL
       ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
-      : ['http://localhost:5173'];
+      : ['http://localhost:5173', 'https://web.eyeglaze.in'];
     const clientUrl = allowedOrigins.find((url) => url !== '*') || 'https://eyeglaze.com';
     const lastmod = new Date().toISOString().split('T')[0];
 
