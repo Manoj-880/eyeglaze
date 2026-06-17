@@ -30,9 +30,13 @@ dotenv.config();
 
 const app = express();
 
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
+  : ['http://localhost:5173'];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -47,7 +51,10 @@ app.get('/sitemap.xml', async (req, res, next) => {
   try {
     await connectDB();
     const products = await Product.find({ isActive: true }).select('_id updatedAt').lean();
-    const clientUrl = process.env.CLIENT_URL || 'https://eyeglaze.com';
+    const allowedOrigins = process.env.CLIENT_URL
+      ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
+      : ['http://localhost:5173'];
+    const clientUrl = allowedOrigins.find((url) => url !== '*') || 'https://eyeglaze.com';
     const lastmod = new Date().toISOString().split('T')[0];
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
