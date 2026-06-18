@@ -4,12 +4,18 @@ import { connectDB } from '../config/mongodb';
 import { Product } from '../models/Product';
 import { Review } from '../models/Review';
 
+const parseCommaParam = (param: any): string[] | undefined => {
+  if (typeof param === 'string' && param.trim() !== '') {
+    return param.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return undefined;
+};
+
 export async function getProducts(req: Request, res: Response) {
   try {
     await connectDB();
 
     const category = req.query.category as string | undefined;
-    const frameType = req.query.frameType as string | undefined;
     const search = req.query.search as string | undefined;
     const sort = (req.query.sort as string) || 'newest';
     const page = parseInt((req.query.page as string) || '1');
@@ -19,35 +25,125 @@ export async function getProducts(req: Request, res: Response) {
     const compatible = req.query.compatible as string | undefined;
 
     const query: Record<string, any> = { isActive: true };
+    const andConditions: any[] = [];
 
     if (category) {
-      query.$or = [{ category }, { categories: category }];
+      const normalized = category === 'bluelight' ? 'blue_light' : category === 'contact' ? 'contact_lenses' : category;
+      andConditions.push({ $or: [{ category: normalized }, { categories: normalized }] });
     }
-    if (frameType) {
-      if (query.$or) {
-        query.$and = [
-          { $or: query.$or },
-          { $or: [{ frameType }, { 'frame.type': frameType }] }
-        ];
-        delete query.$or;
+
+    if (search) {
+      andConditions.push({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { sku: { $regex: search, $options: 'i' } },
+          { tags: { $regex: search, $options: 'i' } },
+        ],
+      });
+    }
+
+    if (minPrice || maxPrice) {
+      const priceCond: Record<string, any> = {};
+      if (minPrice) priceCond.$gte = parseFloat(minPrice);
+      if (maxPrice) priceCond.$lte = parseFloat(maxPrice);
+      andConditions.push({ 'price.selling': priceCond });
+    }
+
+    if (compatible) {
+      andConditions.push({ [`compatible.${compatible}`]: true });
+    }
+
+    // New MERN filters
+    const brands = parseCommaParam(req.query.brand);
+    if (brands) {
+      andConditions.push({ brand: { $in: brands } });
+    }
+
+    const shapes = parseCommaParam(req.query.shape);
+    if (shapes) {
+      andConditions.push({
+        $or: [
+          { shape: { $in: shapes } },
+          { 'frame.type': { $in: shapes } },
+          { frameType: { $in: shapes } },
+        ],
+      });
+    }
+
+    const frameSizes = parseCommaParam(req.query.frameSize || req.query.size);
+    if (frameSizes) {
+      andConditions.push({ frameSize: { $in: frameSizes } });
+    }
+
+    const frameColors = parseCommaParam(req.query.frameColor || req.query.color);
+    if (frameColors) {
+      andConditions.push({
+        $or: [
+          { frameColor: { $in: frameColors } },
+          { 'colors.name': { $regex: frameColors.map(c => `^${c}$|\\b${c}\\b`).join('|'), $options: 'i' } },
+        ],
+      });
+    }
+
+    const frameTypes = parseCommaParam(req.query.frameType);
+    if (frameTypes) {
+      const shapeList = ['Square', 'Round', 'Clubmaster', 'Aviator', 'Wayfarer', 'Cat Eye', 'Hexagonal', 'Rectangle', 'Oval', 'Geometric'];
+      const hasLegacyShapes = frameTypes.some(t => shapeList.includes(t));
+      if (hasLegacyShapes) {
+        andConditions.push({
+          $or: [
+            { shape: { $in: frameTypes } },
+            { 'frame.type': { $in: frameTypes } },
+            { frameType: { $in: frameTypes } },
+          ],
+        });
       } else {
-        query.$or = [{ frameType }, { 'frame.type': frameType }];
+        andConditions.push({ frameType: { $in: frameTypes } });
       }
     }
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } },
-        { tags: { $regex: search, $options: 'i' } },
-      ];
+
+    const materials = parseCommaParam(req.query.material);
+    if (materials) {
+      andConditions.push({
+        $or: [
+          { material: { $in: materials } },
+          { 'frame.material': { $in: materials } },
+        ],
+      });
     }
-    if (minPrice || maxPrice) {
-      query['price.selling'] = {};
-      if (minPrice) query['price.selling'].$gte = parseFloat(minPrice);
-      if (maxPrice) query['price.selling'].$lte = parseFloat(maxPrice);
+
+    const weights = parseCommaParam(req.query.weight);
+    if (weights) {
+      andConditions.push({ weight: { $in: weights } });
     }
-    if (compatible) {
-      query[`compatible.${compatible}`] = true;
+
+    const faceShapes = parseCommaParam(req.query.faceShape);
+    if (faceShapes) {
+      andConditions.push({ faceShapes: { $in: faceShapes } });
+    }
+
+    const rating = req.query.rating as string | undefined;
+    if (rating) {
+      andConditions.push({ rating: { $gte: parseFloat(rating) } });
+    }
+
+    const genders = parseCommaParam(req.query.gender);
+    if (genders) {
+      andConditions.push({ gender: { $in: genders } });
+    }
+
+    const isPremium = req.query.isPremium as string | undefined;
+    if (isPremium === 'true') {
+      andConditions.push({ isPremium: true });
+    }
+
+    const tryIn3D = req.query.tryIn3D as string | undefined;
+    if (tryIn3D === 'true') {
+      andConditions.push({ tryIn3D: true });
+    }
+
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     const sortMap: Record<string, Record<string, 1 | -1>> = {

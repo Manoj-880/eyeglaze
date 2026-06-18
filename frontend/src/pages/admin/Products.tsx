@@ -12,6 +12,14 @@ interface Product {
   isBestseller: boolean;
   frameType?: string;
   material?: string;
+  brand?: string;
+  shape?: string;
+  frameSize?: string;
+  frameColor?: string;
+  weight?: string;
+  faceShapes?: string[];
+  isPremium?: boolean;
+  tryIn3D?: boolean;
   description?: string;
   frame?: {
     type?: string;
@@ -49,8 +57,16 @@ const emptyForm = {
   name: '',
   description: '',
   category: 'prescription',
-  frameType: 'Square',
+  brand: 'Vincent Chase',
+  shape: 'Rectangle',
+  frameSize: 'Medium',
+  frameColor: 'Black',
+  frameType: 'Full Rim',
   material: 'TR90 Premium',
+  weight: 'Lightweight',
+  faceShapes: [] as string[],
+  isPremium: false,
+  tryIn3D: false,
   isActive: true,
   isBestseller: false,
   priceOriginal: 999,
@@ -129,8 +145,16 @@ export default function AdminProductsPage() {
       name: p.name || '',
       description: p.description || '',
       category: p.category || 'prescription',
-      frameType: p.frameType || p.frame?.type || 'Square',
+      brand: p.brand || 'Vincent Chase',
+      shape: p.shape || p.frame?.type || 'Rectangle',
+      frameSize: p.frameSize || 'Medium',
+      frameColor: p.frameColor || 'Black',
+      frameType: p.frameType || 'Full Rim',
       material: p.material || p.frame?.material || 'TR90 Premium',
+      weight: p.weight || 'Lightweight',
+      faceShapes: p.faceShapes || [],
+      isPremium: p.isPremium ?? false,
+      tryIn3D: p.tryIn3D ?? false,
       priceOriginal: p.price?.original ?? 999,
       priceSelling: p.price?.selling ?? 999,
       frameWidth: p.frame?.width ? String(p.frame.width) : '',
@@ -368,10 +392,18 @@ export default function AdminProductsPage() {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         category: form.category,
+        brand: form.brand,
+        shape: form.shape,
+        frameSize: form.frameSize,
+        frameColor: form.frameColor,
         frameType: form.frameType,
         material: form.material,
+        weight: form.weight,
+        faceShapes: form.faceShapes,
+        isPremium: form.isPremium,
+        tryIn3D: form.tryIn3D,
         frame: {
-          type: form.frameType,
+          type: form.shape,
           material: form.material,
           width: form.frameWidth ? parseInt(form.frameWidth) : undefined,
           lensWidth: form.lensWidth ? parseInt(form.lensWidth) : undefined,
@@ -560,9 +592,9 @@ export default function AdminProductsPage() {
               {/* TAB 1: BASIC INFO */}
               {activeTab === 'basic' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">SKU (auto-generated if empty)</label>
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">SKU</label>
                       <input
                         type="text"
                         value={form.sku}
@@ -580,6 +612,18 @@ export default function AdminProductsPage() {
                       >
                         {CATEGORIES.map(c => (
                           <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Brand</label>
+                      <select
+                        value={form.brand}
+                        onChange={e => setForm({ ...form, brand: e.target.value })}
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none cursor-pointer"
+                      >
+                        {['Vincent Chase', 'John Jacobs', 'Hustlr', 'Lenskart Air'].map(b => (
+                          <option key={b} value={b}>{b}</option>
                         ))}
                       </select>
                     </div>
@@ -629,7 +673,7 @@ export default function AdminProductsPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-6 pt-2 select-none">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 select-none">
                     <label className="flex items-center gap-2 cursor-pointer text-white text-xs font-semibold">
                       <input
                         type="checkbox"
@@ -637,7 +681,7 @@ export default function AdminProductsPage() {
                         onChange={e => setForm({ ...form, isBestseller: e.target.checked })}
                         className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
                       />
-                      <span>Mark as Bestseller</span>
+                      <span>Bestseller</span>
                     </label>
 
                     <label className="flex items-center gap-2 cursor-pointer text-white text-xs font-semibold">
@@ -647,7 +691,27 @@ export default function AdminProductsPage() {
                         onChange={e => setForm({ ...form, isActive: e.target.checked })}
                         className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
                       />
-                      <span>Active (visible on store)</span>
+                      <span>Active</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-white text-xs font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={form.isPremium}
+                        onChange={e => setForm({ ...form, isPremium: e.target.checked })}
+                        className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
+                      />
+                      <span>Premium</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-white text-xs font-semibold">
+                      <input
+                        type="checkbox"
+                        checked={form.tryIn3D}
+                        onChange={e => setForm({ ...form, tryIn3D: e.target.checked })}
+                        className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
+                      />
+                      <span>Try in 3D</span>
                     </label>
                   </div>
                 </div>
@@ -659,7 +723,31 @@ export default function AdminProductsPage() {
                   <div className="bg-[#18181A] border border-[#2A2A2D]/40 p-4 rounded-xl space-y-4">
                     <h3 className="text-white text-xs font-extrabold uppercase tracking-wide text-[#D4A04D]">Frame Dimensions</h3>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Shape & Style</label>
+                        <select
+                          value={form.shape}
+                          onChange={e => setForm({ ...form, shape: e.target.value })}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none cursor-pointer"
+                        >
+                          {['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster'].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Size</label>
+                        <select
+                          value={form.frameSize}
+                          onChange={e => setForm({ ...form, frameSize: e.target.value })}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none cursor-pointer"
+                        >
+                          {['Small', 'Medium', 'Large'].map(sz => (
+                            <option key={sz} value={sz}>{sz}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
                         <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Type</label>
                         <select
@@ -667,20 +755,75 @@ export default function AdminProductsPage() {
                           onChange={e => setForm({ ...form, frameType: e.target.value })}
                           className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none cursor-pointer"
                         >
-                          {['Square', 'Round', 'Clubmaster', 'Aviator', 'Wayfarer', 'Cat Eye', 'Hexagonal', 'Rectangle'].map(t => (
+                          {['Full Rim', 'Half Rim', 'Rimless'].map(t => (
                             <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Color</label>
+                        <select
+                          value={form.frameColor}
+                          onChange={e => setForm({ ...form, frameColor: e.target.value })}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none cursor-pointer"
+                        >
+                          {['Black', 'Brown', 'Gold', 'Silver', 'Transparent', 'Pink'].map(c => (
+                            <option key={c} value={c}>{c}</option>
                           ))}
                         </select>
                       </div>
                       <div>
                         <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Material</label>
-                        <input
-                          type="text"
+                        <select
                           value={form.material}
                           onChange={e => setForm({ ...form, material: e.target.value })}
-                          placeholder="e.g. TR90 Premium, Metal, Acetate"
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                        />
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none cursor-pointer"
+                        >
+                          {['Metal', 'Acetate', 'TR90', 'Titanium'].map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Weight</label>
+                        <select
+                          value={form.weight}
+                          onChange={e => setForm({ ...form, weight: e.target.value })}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none cursor-pointer"
+                        >
+                          {['Lightweight', 'Medium', 'Heavy'].map(w => (
+                            <option key={w} value={w}>{w}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-2">Suitable Face Shapes</label>
+                      <div className="flex gap-6 pt-1 select-none">
+                        {['Round', 'Oval', 'Square', 'Diamond'].map(shape => {
+                          const list = form.faceShapes || [];
+                          const isChecked = list.includes(shape);
+                          return (
+                            <label key={shape} className="flex items-center gap-2 cursor-pointer text-white text-xs font-semibold">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={e => {
+                                  const newList = e.target.checked
+                                    ? [...list, shape]
+                                    : list.filter(s => s !== shape);
+                                  setForm({ ...form, faceShapes: newList });
+                                }}
+                                className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
+                              />
+                              <span>{shape}</span>
+                            </label>
+                          );
+                        })}
                       </div>
                     </div>
 

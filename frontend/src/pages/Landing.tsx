@@ -479,36 +479,68 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Shop by Category - Full View */}
-        <section className="flex flex-col gap-4 w-full">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold uppercase tracking-wider text-white">Shop by Category</h2>
-            <Link to="/categories" className="text-[#D4A04D] text-xs hover:underline flex items-center gap-1 font-semibold">
-              View All <span>&gt;</span>
-            </Link>
-          </div>
-
-          {/* Category List */}
-          <div className="flex gap-2.5 overflow-x-auto pb-3 scrollbar-none snap-x md:grid md:grid-cols-5 md:overflow-visible w-full justify-between">
+        {/* Shop by Category - Redesigned to Lenskart style */}
+        <section className="flex flex-col gap-6 w-full">
+          <div className="flex flex-col gap-8">
             {[
-              { label: 'Prescription Glasses', img: '/images/cat_prescription.png', slug: 'prescription' },
-              { label: 'Sunglasses', img: '/images/cat_sunglasses.png', slug: 'sunglasses' },
-              { label: 'Blue Light Glasses', img: '/images/cat_blue_light.png', slug: 'blue_light' },
-              { label: 'Contact Lenses', img: '/images/cat_contacts.png', slug: 'contact' },
-              { label: 'Kids Eyewear', img: '/images/cat_kids.png', slug: 'kids' }
-            ].map((cat) => (
-              <Link 
-                key={cat.slug} 
-                to={`/products?category=${cat.slug}`}
-                className="flex flex-col items-center gap-2 shrink-0 snap-start w-[68px] sm:w-[90px] md:w-auto group cursor-pointer"
-              >
-                <div className="w-[60px] h-[60px] sm:w-[80px] sm:h-[80px] md:w-32 md:h-32 rounded-full overflow-hidden border border-[#2A2A2D] group-hover:border-[#D4A04D] transition-all duration-300 p-0.5 bg-gradient-to-b from-[#1E1E20] to-[#0D0D0E] flex items-center justify-center shadow-lg">
-                  <img src={cat.img} alt={cat.label} className="w-[90%] h-[90%] object-cover rounded-full" />
+              {
+                title: 'Eyeglasses',
+                badge: 'with Power',
+                items: [
+                  { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men' },
+                  { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women' },
+                  { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids' },
+                  { label: 'On Sale', img: '/images/sale_eyeglasses.png', to: '/products?category=prescription&sort=price_asc', tag: 'Starts @ ₹800' }
+                ]
+              },
+              {
+                title: 'Sunglasses',
+                items: [
+                  { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men' },
+                  { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women' },
+                  { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids' },
+                  { label: 'On Sale', img: '/images/sale_sunglasses.png', to: '/products?category=sunglasses&sort=price_asc', tag: 'Starts @ ₹500' }
+                ]
+              }
+            ].map((sec, idx) => (
+              <div key={idx} className="flex flex-col gap-4">
+                {/* Section Header */}
+                <div className="flex items-center gap-2.5">
+                  <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider">{sec.title}</h3>
+                  {sec.badge && (
+                    <span className="bg-[#ECEFF9] text-[#2C3B75] px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-wider shadow-sm">
+                      {sec.badge}
+                    </span>
+                  )}
                 </div>
-                <span className="text-[9px] sm:text-xs text-center font-bold text-gray-300 group-hover:text-[#D4A04D] transition-colors line-clamp-2 px-0.5 leading-tight">
-                  {cat.label}
-                </span>
-              </Link>
+
+                {/* Grid Items */}
+                <div className="grid grid-cols-4 gap-3 sm:gap-6 w-full">
+                  {sec.items.map((item, itemIdx) => (
+                    <Link 
+                      key={itemIdx} 
+                      to={item.to}
+                      className="flex flex-col group cursor-pointer"
+                    >
+                      <div className="w-full aspect-square rounded-2xl bg-[#131314] border border-[#2A2A2D]/80 hover:border-[#D4A04D] overflow-hidden relative transition-all duration-300 p-0.5 bg-gradient-to-b from-[#1C1C1E] to-[#0E0E0F] flex items-center justify-center shadow-md">
+                        {item.tag && (
+                          <span className="absolute top-1 left-1 bg-[#2C3B75] text-white text-[6px] sm:text-[8px] font-black py-0.5 px-1 rounded sm:rounded-md tracking-wide uppercase z-10 shadow-sm leading-none">
+                            {item.tag}
+                          </span>
+                        )}
+                        <img 
+                          src={item.img} 
+                          alt={item.label} 
+                          className="w-full h-full object-cover rounded-xl transition-all duration-500 group-hover:scale-102"
+                        />
+                      </div>
+                      <span className="text-[9px] sm:text-xs text-center font-bold text-gray-400 group-hover:text-[#D4A04D] transition-colors mt-1.5 uppercase tracking-widest leading-none">
+                        {item.label}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </section>

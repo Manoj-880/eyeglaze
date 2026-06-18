@@ -23,6 +23,14 @@ export interface IProduct extends Document {
   };
   frameType?: string;
   material?: string;
+  brand?: string;
+  shape?: string;
+  frameSize?: string;
+  frameColor?: string;
+  weight?: string;
+  faceShapes?: string[];
+  isPremium?: boolean;
+  tryIn3D?: boolean;
   colors: IProductColor[];
   defaultColor?: string;
   images: string[];
@@ -36,6 +44,7 @@ export interface IProduct extends Document {
   discountPercent?: number;
   category: string;
   categories: string[];
+  gender?: 'men' | 'women' | 'kids' | 'unisex';
   compatible: {
     prescription: boolean;
     bluecut: boolean;
@@ -85,6 +94,14 @@ const ProductSchema = new Schema<IProduct>(
     },
     frameType: { type: String },
     material: { type: String },
+    brand: { type: String },
+    shape: { type: String },
+    frameSize: { type: String },
+    frameColor: { type: String },
+    weight: { type: String },
+    faceShapes: [{ type: String }],
+    isPremium: { type: Boolean, default: false },
+    tryIn3D: { type: Boolean, default: false },
     colors: [ProductColorSchema],
     defaultColor: { type: String },
     images: [String],
@@ -101,6 +118,11 @@ const ProductSchema = new Schema<IProduct>(
       enum: ['prescription', 'sunglasses', 'blue_light', 'contact_lenses', 'kids'],
     },
     categories: [String],
+    gender: {
+      type: String,
+      enum: ['men', 'women', 'kids', 'unisex'],
+      default: 'unisex',
+    },
     compatible: {
       prescription: { type: Boolean, default: false },
       bluecut: { type: Boolean, default: false },
@@ -127,5 +149,17 @@ ProductSchema.index({ sku: 1 });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ categories: 1 });
 ProductSchema.index({ name: 'text', tags: 'text' });
+ProductSchema.index({ brand: 1 });
+ProductSchema.index({ shape: 1 });
+ProductSchema.index({ frameSize: 1 });
+ProductSchema.index({ frameColor: 1 });
+ProductSchema.index({ frameType: 1 });
+ProductSchema.index({ material: 1 });
+ProductSchema.index({ weight: 1 });
+ProductSchema.index({ faceShapes: 1 });
+ProductSchema.index({ rating: 1 });
+ProductSchema.index({ isPremium: 1 });
+ProductSchema.index({ tryIn3D: 1 });
+ProductSchema.index({ gender: 1 });
 
 export const Product = mongoose.models.Product || mongoose.model<IProduct>('Product', ProductSchema);

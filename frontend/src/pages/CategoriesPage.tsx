@@ -2,103 +2,122 @@ import { Link } from 'react-router-dom';
 import SEO from '../components/SEO';
 
 export default function CategoriesPage() {
-  const categories = [
+  const sections = [
     {
-      title: 'Prescription Glasses',
-      description: 'Find clear vision and elegant design with our custom spheres and lightweight frames.',
-      img: '/images/cat_prescription.png',
-      slug: 'prescription',
-      count: '120+ Frames'
+      title: 'Eyeglasses',
+      badge: 'with Power',
+      items: [
+        {
+          label: 'Men',
+          img: '/images/men_eyeglasses.png',
+          to: '/products?category=prescription&gender=men'
+        },
+        {
+          label: 'Women',
+          img: '/images/women_eyeglasses.png',
+          to: '/products?category=prescription&gender=women'
+        },
+        {
+          label: 'Kids',
+          img: '/images/kids_eyeglasses.png',
+          to: '/products?category=prescription&gender=kids'
+        },
+        {
+          label: 'On Sale',
+          img: '/images/sale_eyeglasses.png',
+          to: '/products?category=prescription&sort=price_asc',
+          tag: 'Starts @ ₹800'
+        }
+      ]
     },
     {
       title: 'Sunglasses',
-      description: 'Protect your eyes from UV rays in absolute style. From classic aviators to modern clubmasters.',
-      img: '/images/cat_sunglasses.png',
-      slug: 'sunglasses',
-      count: '85+ Models'
-    },
-    {
-      title: 'Blue Light Glasses',
-      description: 'Protect your eyes from screen fatigue. Specially coated lenses filter blue light from digital devices.',
-      img: '/images/cat_blue_light.png',
-      slug: 'bluelight',
-      count: '50+ Styles'
-    },
-    {
-      title: 'Contact Lenses',
-      description: 'Experience ultimate comfort and freedom. High-hydration breathable disposable lenses.',
-      img: '/images/cat_contacts.png',
-      slug: 'contact',
-      count: '30+ Packs'
-    },
-    {
-      title: 'Kids Eyewear',
-      description: 'Durable, shatterproof, and colorfully fun glasses designed specifically for active children.',
-      img: '/images/cat_kids.png',
-      slug: 'kids',
-      count: '40+ Colors'
+      items: [
+        {
+          label: 'Men',
+          img: '/images/men_sunglasses.png',
+          to: '/products?category=sunglasses&gender=men'
+        },
+        {
+          label: 'Women',
+          img: '/images/women_sunglasses.png',
+          to: '/products?category=sunglasses&gender=women'
+        },
+        {
+          label: 'Kids',
+          img: '/images/kids_sunglasses.png',
+          to: '/products?category=sunglasses&gender=kids'
+        },
+        {
+          label: 'On Sale',
+          img: '/images/sale_sunglasses.png',
+          to: '/products?category=sunglasses&sort=price_asc',
+          tag: 'Starts @ ₹500'
+        }
+      ]
     }
   ];
 
   return (
-    <div className="min-h-screen bg-[#0B0B0C] text-white py-4 flex flex-col gap-8">
+    <div className="min-h-screen bg-[#0B0B0C] text-white py-6 flex flex-col gap-10 max-w-5xl mx-auto px-4 select-none">
       <SEO 
-        title="Eyewear Categories | Prescription, Sunglasses, Blue Cut"
-        description="Browse our prescription eyeglasses, designer sunglasses, screen-ready blue light glasses, contact lenses, and kids collections at EyeGlaze."
-        keywords="eyeglasses categories, designer sunglasses collection, blue cut lenses, contacts online"
+        title="Shop Eyewear by Category | EyeGlaze"
+        description="Browse premium prescription eyeglasses and designer sunglasses for Men, Women, and Kids at EyeGlaze."
+        keywords="eyeglasses, sunglasses, men glasses, women glasses, kids glasses, prescription eyewear"
       />
       
-      {/* Header Info */}
-      <div className="flex flex-col gap-2 max-w-2xl">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-[2px] bg-[#D4A04D]" />
-          <span className="text-[#D4A04D] text-xs font-bold tracking-widest uppercase">Collections</span>
-        </div>
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Shop by Category</h1>
-        <p className="text-gray-400 text-sm">
-          Discover our curated collections. Hand-crafted premium frames and optical technologies tailored to your exact prescription and lifestyle.
-        </p>
+      {/* Title */}
+      <div className="flex flex-col gap-1 border-b border-[#2A2A2D]/40 pb-4">
+        <h1 className="text-xl md:text-2xl font-bold uppercase tracking-wider text-white">Shop by Category</h1>
+        <p className="text-[#A7A7A7] text-xs font-semibold uppercase tracking-widest mt-0.5">Select from our premium collections</p>
       </div>
 
-      {/* Grid of Categories */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {categories.map((cat, idx) => (
-          <Link 
-            key={idx} 
-            to={`/products?category=${cat.slug}`}
-            className="bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 group flex flex-col justify-between"
-          >
-            {/* Image display */}
-            <div className="aspect-[16/10] bg-[#131314] overflow-hidden relative border-b border-[#2A2A2D]">
-              <img 
-                src={cat.img} 
-                alt={cat.title} 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-              />
-              <span className="absolute bottom-3 right-3 bg-black/80 text-[#D4A04D] text-[10px] font-bold py-1 px-3 rounded-full border border-[#D4A04D]/25">
-                {cat.count}
-              </span>
+      {/* Sections */}
+      <div className="flex flex-col gap-12">
+        {sections.map((sec, idx) => (
+          <div key={idx} className="flex flex-col gap-5">
+            {/* Section Header */}
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg md:text-xl font-bold text-white tracking-wide">{sec.title}</h2>
+              {sec.badge && (
+                <span className="bg-[#ECEFF9] text-[#2C3B75] px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm">
+                  {sec.badge}
+                </span>
+              )}
             </div>
 
-            {/* Description details */}
-            <div className="p-5 flex flex-col gap-3 flex-1 justify-between">
-              <div className="flex flex-col gap-2">
-                <h3 className="text-white text-base font-bold group-hover:text-[#D4A04D] transition-colors">
-                  {cat.title}
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed">
-                  {cat.description}
-                </p>
-              </div>
-              
-              <div className="text-[#D4A04D] text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 mt-3 pt-3 border-t border-[#2A2A2D]/40 group-hover:underline">
-                Explore Products <span>→</span>
-              </div>
+            {/* Grid Items */}
+            <div className="grid grid-cols-4 gap-2.5 sm:gap-5 w-full">
+              {sec.items.map((item, itemIdx) => (
+                <Link 
+                  key={itemIdx} 
+                  to={item.to}
+                  className="flex flex-col group cursor-pointer"
+                >
+                  <div className="w-full aspect-square rounded-2xl bg-[#131314] border border-[#2A2A2D]/80 hover:border-[#D4A04D] overflow-hidden relative transition-all duration-300 p-1 bg-gradient-to-b from-[#1C1C1E] to-[#0E0E0F] flex items-center justify-center shadow-md">
+                    
+                    {/* Starts-at corner tag */}
+                    {item.tag && (
+                      <span className="absolute top-1 left-1 bg-[#2C3B75] text-white text-[7px] sm:text-[9px] font-black py-0.5 px-1.5 rounded-md tracking-wide uppercase z-10 shadow-sm">
+                        {item.tag}
+                      </span>
+                    )}
+
+                    <img 
+                      src={item.img} 
+                      alt={item.label} 
+                      className="w-full h-full object-cover rounded-xl transition-all duration-500 group-hover:scale-102"
+                    />
+                  </div>
+                  <span className="text-[10px] sm:text-xs text-center font-bold text-gray-400 group-hover:text-[#D4A04D] transition-colors mt-2 uppercase tracking-widest leading-none">
+                    {item.label}
+                  </span>
+                </Link>
+              ))}
             </div>
-          </Link>
+          </div>
         ))}
       </div>
-
     </div>
   );
 }
