@@ -62,6 +62,146 @@ export interface IProduct extends Document {
     seoTitle?: string;
     seoDescription?: string;
   };
+  
+  // NEW WIZARD FIELDS BELOW
+  barcode?: string;
+  slug: string;
+  brandId?: mongoose.Types.ObjectId;
+  categoryId?: mongoose.Types.ObjectId;
+  subCategoryId?: mongoose.Types.ObjectId;
+  collectionName?: string;
+  launchDate?: Date;
+  sortOrder?: number;
+  status: 'Draft' | 'Active' | 'Inactive' | 'Scheduled';
+  shortDescription?: string;
+  longDescription?: string;
+
+  // Step 2: Pricing
+  costPrice?: number;
+  gstPercent?: number;
+  discountType?: 'Percentage' | 'Fixed Amount' | 'None';
+  discountValue?: number;
+  profitMargin?: number;
+  taxInclusive?: boolean;
+  currency?: string;
+
+  // Step 3: Member Pricing
+  enableMemberPricing?: boolean;
+  memberPrices?: {
+    regularPrice?: number;
+    goldMemberPrice?: number;
+    platinumMemberPrice?: number;
+    corporateMemberPrice?: number;
+    studentMemberPrice?: number;
+    employeePrice?: number;
+    cashbackPercent?: number;
+    rewardPoints?: number;
+  };
+  memberExclusiveProduct?: boolean;
+
+  // Step 4 & 5: Frame Specs & Measurements
+  primaryColor?: string;
+  secondaryColor?: string;
+  frameWeight?: string;
+  countryOfOrigin?: string;
+  manufacturer?: string;
+  warranty?: string;
+  frameHeight?: number;
+  pdCompatibility?: string;
+  faceShapeCompatibility?: string[];
+
+  // Step 6: Lens Compatibility & Dynamic Lens Pricing
+  compatibleLensTypes?: string[];
+  dynamicLensPricing?: Array<{
+    lensName: string;
+    lensCategory: string;
+    regularPrice: number;
+    goldPrice: number;
+    platinumPrice: number;
+    priority: number;
+    status: 'Active' | 'Inactive';
+  }>;
+
+  // Step 7: Thickness Pricing
+  thicknessPricing?: Array<{
+    thickness: string; // '1.50' | '1.56' | '1.59' | '1.67' | '1.74'
+    regularPrice: number;
+    goldPrice: number;
+    platinumPrice: number;
+  }>;
+
+  // Step 8: Coating Options
+  coatingPricing?: Array<{
+    coatingName: string; // 'Blue Cut' | 'Anti Glare' | 'UV Protection' | 'Photochromic' | 'Polarized' | 'Hydrophobic' | 'Scratch Resistant'
+    regularPrice: number;
+    memberPrice: number;
+    description?: string;
+    isActive: boolean;
+  }>;
+
+  // Step 9: Membership & Offers
+  eligibleForGold?: boolean;
+  eligibleForPlatinum?: boolean;
+  buy1Get1?: boolean;
+  oneRupeeFrameOffer?: boolean;
+  couponEligible?: boolean;
+  rewardEligible?: boolean;
+  familySharing?: boolean;
+  exclusiveProduct?: boolean;
+  oneRupeeOfferConditions?: {
+    membershipRequired?: boolean;
+    premiumLensRequired?: boolean;
+    minCartValue?: number;
+    campaignStartDate?: Date;
+    campaignEndDate?: Date;
+    maxUsage?: number;
+  };
+
+  // Step 11: Inventory
+  warehouseInventory?: Array<{
+    warehouseId: mongoose.Types.ObjectId;
+    warehouseName: string;
+    availableStock: number;
+    reservedStock: number;
+    safetyStock: number;
+    lowStockAlert: number;
+    reorderLevel: number;
+    barcode?: string;
+    qrCode?: string;
+  }>;
+
+  // Step 12: Shipping
+  shippingWeight?: number;
+  shippingLength?: number;
+  shippingWidth?: number;
+  shippingHeight?: number;
+  packageType?: string;
+  fragile?: boolean;
+  estimatedDeliveryDays?: number;
+
+  // Step 13: Media
+  thumbnail?: string;
+  frontView?: string;
+  leftView?: string;
+  rightView?: string;
+  topView?: string;
+  threeSixtyImages?: string[];
+  lifestyleImages?: string[];
+  productVideo?: string;
+  threeDModel?: string;
+  arModel?: string;
+
+  // Step 14: SEO
+  seoKeywords?: string;
+  canonicalUrl?: string;
+  openGraphTitle?: string;
+  openGraphDescription?: string;
+  schemaMarkup?: string;
+  imageAltText?: string;
+
+  // Audit Logs Version Tracking
+  currentVersion: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -139,24 +279,169 @@ const ProductSchema = new Schema<IProduct>(
       seoTitle: String,
       seoDescription: String,
     },
+
+    // NEW WIZARD SCHEMAS
+    barcode: { type: String },
+    slug: { type: String, required: true, unique: true },
+    brandId: { type: Schema.Types.ObjectId, ref: 'Brand' },
+    categoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
+    subCategoryId: { type: Schema.Types.ObjectId, ref: 'Category' },
+    collectionName: { type: String },
+    launchDate: { type: Date },
+    sortOrder: { type: Number, default: 0 },
+    status: {
+      type: String,
+      enum: ['Draft', 'Active', 'Inactive', 'Scheduled'],
+      default: 'Draft',
+    },
+    shortDescription: { type: String },
+    longDescription: { type: String },
+
+    // Step 2: Pricing
+    costPrice: { type: Number, default: 0 },
+    gstPercent: { type: Number, default: 18 },
+    discountType: {
+      type: String,
+      enum: ['Percentage', 'Fixed Amount', 'None'],
+      default: 'None',
+    },
+    discountValue: { type: Number, default: 0 },
+    profitMargin: { type: Number, default: 0 },
+    taxInclusive: { type: Boolean, default: true },
+    currency: { type: String, default: 'INR' },
+
+    // Step 3: Member Pricing
+    enableMemberPricing: { type: Boolean, default: false },
+    memberPrices: {
+      regularPrice: { type: Number },
+      goldMemberPrice: { type: Number },
+      platinumMemberPrice: { type: Number },
+      corporateMemberPrice: { type: Number },
+      studentMemberPrice: { type: Number },
+      employeePrice: { type: Number },
+      cashbackPercent: { type: Number, default: 0 },
+      rewardPoints: { type: Number, default: 0 },
+    },
+    memberExclusiveProduct: { type: Boolean, default: false },
+
+    // Step 4 & 5: Frame Specs & Measurements
+    primaryColor: { type: String },
+    secondaryColor: { type: String },
+    frameWeight: { type: String },
+    countryOfOrigin: { type: String },
+    manufacturer: { type: String },
+    warranty: { type: String },
+    frameHeight: { type: Number },
+    pdCompatibility: { type: String },
+    faceShapeCompatibility: [String],
+
+    // Step 6: Lens Compatibility & Dynamic Lens Pricing
+    compatibleLensTypes: [String],
+    dynamicLensPricing: [
+      {
+        lensName: { type: String, required: true },
+        lensCategory: { type: String, required: true },
+        regularPrice: { type: Number, required: true },
+        goldPrice: { type: Number, required: true },
+        platinumPrice: { type: Number, required: true },
+        priority: { type: Number, default: 0 },
+        status: { type: String, enum: ['Active', 'Inactive'], default: 'Active' },
+      },
+    ],
+
+    // Step 7: Thickness Pricing
+    thicknessPricing: [
+      {
+        thickness: { type: String, required: true },
+        regularPrice: { type: Number, required: true },
+        goldPrice: { type: Number, required: true },
+        platinumPrice: { type: Number, required: true },
+      },
+    ],
+
+    // Step 8: Coating Options
+    coatingPricing: [
+      {
+        coatingName: { type: String, required: true },
+        regularPrice: { type: Number, required: true },
+        memberPrice: { type: Number, required: true },
+        description: { type: String },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
+
+    // Step 9: Membership & Offers
+    eligibleForGold: { type: Boolean, default: true },
+    eligibleForPlatinum: { type: Boolean, default: true },
+    buy1Get1: { type: Boolean, default: false },
+    oneRupeeFrameOffer: { type: Boolean, default: false },
+    couponEligible: { type: Boolean, default: true },
+    rewardEligible: { type: Boolean, default: true },
+    familySharing: { type: Boolean, default: false },
+    exclusiveProduct: { type: Boolean, default: false },
+    oneRupeeOfferConditions: {
+      membershipRequired: { type: Boolean, default: false },
+      premiumLensRequired: { type: Boolean, default: false },
+      minCartValue: { type: Number, default: 0 },
+      campaignStartDate: { type: Date },
+      campaignEndDate: { type: Date },
+      maxUsage: { type: Number },
+    },
+
+    // Step 11: Inventory
+    warehouseInventory: [
+      {
+        warehouseId: { type: Schema.Types.ObjectId, ref: 'Warehouse', required: true },
+        warehouseName: { type: String, required: true },
+        availableStock: { type: Number, default: 0 },
+        reservedStock: { type: Number, default: 0 },
+        safetyStock: { type: Number, default: 0 },
+        lowStockAlert: { type: Number, default: 10 },
+        reorderLevel: { type: Number, default: 20 },
+        barcode: { type: String },
+        qrCode: { type: String },
+      },
+    ],
+
+    // Step 12: Shipping
+    shippingWeight: { type: Number },
+    shippingLength: { type: Number },
+    shippingWidth: { type: Number },
+    shippingHeight: { type: Number },
+    packageType: { type: String },
+    fragile: { type: Boolean, default: false },
+    estimatedDeliveryDays: { type: Number, default: 5 },
+
+    // Step 13: Media
+    thumbnail: { type: String },
+    frontView: { type: String },
+    leftView: { type: String },
+    rightView: { type: String },
+    topView: { type: String },
+    threeSixtyImages: [String],
+    lifestyleImages: [String],
+    productVideo: { type: String },
+    threeDModel: { type: String },
+    arModel: { type: String },
+
+    // Step 14: SEO
+    seoKeywords: { type: String },
+    canonicalUrl: { type: String },
+    openGraphTitle: { type: String },
+    openGraphDescription: { type: String },
+    schemaMarkup: { type: String },
+    imageAltText: { type: String },
+
+    currentVersion: { type: Number, default: 1 },
   },
   { timestamps: true }
 );
 
 ProductSchema.index({ sku: 1 });
+ProductSchema.index({ slug: 1 });
 ProductSchema.index({ category: 1 });
-ProductSchema.index({ categories: 1 });
-ProductSchema.index({ name: 'text', tags: 'text' });
-ProductSchema.index({ brand: 1 });
-ProductSchema.index({ shape: 1 });
-ProductSchema.index({ frameSize: 1 });
-ProductSchema.index({ frameColor: 1 });
-ProductSchema.index({ frameType: 1 });
-ProductSchema.index({ material: 1 });
-ProductSchema.index({ weight: 1 });
-ProductSchema.index({ faceShapes: 1 });
-ProductSchema.index({ rating: 1 });
-ProductSchema.index({ isPremium: 1 });
-ProductSchema.index({ gender: 1 });
+ProductSchema.index({ status: 1 });
+ProductSchema.index({ brandId: 1 });
+ProductSchema.index({ categoryId: 1 });
 
 export const Product = mongoose.models.Product || mongoose.model<IProduct>('Product', ProductSchema);

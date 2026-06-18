@@ -298,19 +298,16 @@ export default function LandingPage() {
               </svg>
             </button>
 
-            {/* Notification Icon with Badge "3" */}
-            <button 
-              onClick={() => alert('You have 3 new notifications: 1. Your eye test is booked. 2. 50% Off sale is active. 3. New arrivals added!')}
+            {/* Wishlist Icon */}
+            <Link 
+              to="/wishlist" 
               className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" 
-              title="Notifications"
+              title="Wishlist"
             >
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
-              <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[8px] w-4 h-4 rounded-full flex items-center justify-center border border-[#0B0B0C]">
-                3
-              </span>
-            </button>
+            </Link>
 
             {/* Cart Icon with Badge */}
             <Link to="/cart" className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" title="Shopping Cart">

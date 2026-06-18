@@ -26,6 +26,7 @@ import Contact from './pages/Contact';
 
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/Products';
+import AdminAddProductWizard from './pages/admin/AddProductWizard';
 import AdminOrders from './pages/admin/Orders';
 import AdminInventory from './pages/admin/Inventory';
 import AdminUsers from './pages/admin/Users';
@@ -116,6 +117,22 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminProducts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/products/add"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminAddProductWizard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/products/edit/:id"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminAddProductWizard />
                 </ProtectedRoute>
               }
             />

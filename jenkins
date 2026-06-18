@@ -1,0 +1,128 @@
+pipeline {
+
+    agent any
+ 
+    stages {
+
+        stage('Deploy') {
+
+            steps {
+
+                sshagent(['ec2-ssh']) {
+
+                    sh '''
+
+ssh -o StrictHostKeyChecking=no root@13.205.141.197 << 'EOF'
+ 
+cd /root/eyeglaze
+ 
+echo "Pulling latest code..."
+
+git pull origin main
+ 
+echo "Building backend..."
+
+cd server
+
+npm install
+
+npm run build
+ 
+echo "Restarting PM2..."
+
+pm2 restart backend
+ 
+echo "Building frontend..."
+
+cd ../frontend
+
+npm install
+
+npm run build
+ 
+echo "Removing old frontend files..."
+
+rm -rf /var/www/eyeglaze/*
+ 
+echo "Copying new dist files..."
+
+cp -r dist/* /var/www/eyeglaze/
+ 
+echo "Restarting Nginx..."
+
+systemctl restart nginx
+ 
+echo "Deployment completed successfully."
+ 
+EOF
+
+'''
+
+                }
+
+            }
+
+        }
+
+    }
+ 
+    post {
+
+        success {
+
+            emailext(
+
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+
+                body: """
+
+Deployment Successful.
+ 
+Job Name: ${env.JOB_NAME}
+
+Build Number: ${env.BUILD_NUMBER}
+ 
+Build URL:
+
+${env.BUILD_URL}
+
+""",
+
+                to: "speshway17@gmail.com"
+
+            )
+
+        }
+ 
+        failure {
+
+            emailext(
+
+                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+
+                body: """
+
+Deployment Failed.
+ 
+Job Name: ${env.JOB_NAME}
+
+Build Number: ${env.BUILD_NUMBER}
+ 
+Build URL:
+
+${env.BUILD_URL}
+ 
+Please check Jenkins console logs.
+
+""",
+
+                to: "speshway17@gmail.com"
+
+            )
+
+        }
+
+    }
+
+}
+ 
