@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
 import Footer from '../components/Footer';
@@ -252,6 +252,11 @@ export default function LandingPage() {
       badge: 'NEW'
     }
   ];
+
+  const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
+  if (user && ADMIN_ROLES.includes(user.role || '')) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white flex flex-col font-sans pb-16 md:pb-0 w-full overflow-x-hidden">

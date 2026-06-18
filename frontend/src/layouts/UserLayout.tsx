@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 
@@ -8,6 +8,11 @@ export default function UserLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
+  if (user && ADMIN_ROLES.includes(user.role || '')) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   // Check if we are on the product detail route (e.g. /products/:id)
   const segments = location.pathname.split('/');

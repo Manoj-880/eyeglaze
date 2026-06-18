@@ -48,6 +48,11 @@ export default function CustomerLayout() {
     );
   }
 
+  const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
+  if (user && ADMIN_ROLES.includes(user.role || '')) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
