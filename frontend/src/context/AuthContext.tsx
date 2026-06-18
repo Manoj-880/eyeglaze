@@ -5,8 +5,15 @@ export interface AuthUser {
   _id: string;
   name?: string;
   phone?: string;
+  mobile?: string;
   email?: string;
   role?: string;
+  walletBalance?: number;
+  savedCards?: any[];
+  linkedWallets?: any[];
+  transactions?: any[];
+  addresses?: any[];
+  wishlist?: any[];
   [key: string]: unknown;
 }
 

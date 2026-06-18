@@ -19,7 +19,7 @@ const ProductVariantSchema = new Schema<IProductVariant>(
     productId: { type: Schema.Types.ObjectId, ref: 'Product', required: true, index: true },
     name: { type: String, required: true },
     color: { type: String, required: true },
-    sku: { type: String, required: true, unique: true, index: true },
+    sku: { type: String, required: true, unique: true },
     stock: { type: Number, required: true, default: 0 },
     priceOverride: { type: Number },
     status: { type: String, enum: ['Draft', 'Active', 'Inactive', 'Scheduled'], default: 'Draft' },

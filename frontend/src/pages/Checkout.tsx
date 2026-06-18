@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
 import SEO from '../components/SEO';
+import { useAuth } from '../context/AuthContext';
 
 interface CartItem {
   id: string;
@@ -17,6 +18,7 @@ interface CartItem {
 }
 
 export default function CheckoutPage() {
+  const { user } = useAuth();
 
   // Cart & Pricing
   const [items, setItems] = useState<CartItem[]>([]);
@@ -32,6 +34,22 @@ export default function CheckoutPage() {
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cod'); // cod, card, upi
+
+  // Auto-fill from default saved address if available
+  useEffect(() => {
+    if (user && user.addresses && user.addresses.length > 0) {
+      const defaultAddr = (user.addresses as any[]).find(addr => addr.isDefault) || user.addresses[0];
+      if (defaultAddr) {
+        setFullName(defaultAddr.fullName || '');
+        setMobile(defaultAddr.mobile || '');
+        setLine1(defaultAddr.line1 || '');
+        setLine2(defaultAddr.line2 || '');
+        setCity(defaultAddr.city || '');
+        setState(defaultAddr.state || '');
+        setPincode(defaultAddr.pincode || '');
+      }
+    }
+  }, [user]);
   
   // Success state
   const [orderSuccess, setOrderSuccess] = useState(false);
@@ -188,10 +206,67 @@ export default function CheckoutPage() {
         {/* Left Columns: Address Form & Payment */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Shipping Address */}
           <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-6 space-y-4">
             <h2 className="text-white font-bold text-base uppercase tracking-wider pb-2 border-b border-[#2A2A2D]">Shipping Address</h2>
             
+            {user && user.addresses && user.addresses.length > 0 && (
+              <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4 mb-2">
+                <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block mb-2.5">
+                  📋 Use a Saved Address
+                </label>
+                <div className="grid sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1">
+                  {user.addresses.map((addr: any) => {
+                    const addrId = addr._id || addr.id;
+                    const isSelected = 
+                      fullName === addr.fullName && 
+                      mobile === addr.mobile && 
+                      line1 === addr.line1 && 
+                      line2 === (addr.line2 || '') && 
+                      city === addr.city && 
+                      state === addr.state && 
+                      pincode === addr.pincode;
+                      
+                    return (
+                      <button
+                        key={addrId}
+                        type="button"
+                        onClick={() => {
+                          setFullName(addr.fullName || '');
+                          setMobile(addr.mobile || '');
+                          setLine1(addr.line1 || '');
+                          setLine2(addr.line2 || '');
+                          setCity(addr.city || '');
+                          setState(addr.state || '');
+                          setPincode(addr.pincode || '');
+                        }}
+                        className={`text-left p-3 rounded-xl border text-xs transition-all flex flex-col justify-between ${
+                          isSelected 
+                            ? 'border-[#D4A04D] bg-[#D4A04D]/5 text-white' 
+                            : 'border-[#2A2A2D] bg-[#131314] text-gray-400 hover:border-gray-700'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex justify-between items-center mb-1.5">
+                            <span className="font-extrabold text-white uppercase text-[8px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10">
+                              {addr.type}
+                            </span>
+                            {addr.isDefault && (
+                              <span className="text-[9px] text-[#D4A04D] font-extrabold uppercase">Default</span>
+                            )}
+                          </div>
+                          <div className="font-bold text-white truncate">{addr.fullName}</div>
+                          <div className="text-[#A7A7A7] text-[10px] mt-0.5">{addr.mobile}</div>
+                          <div className="line-clamp-2 text-gray-400 text-[10px] mt-1.5 leading-relaxed">
+                            {addr.line1}, {addr.line2 ? `${addr.line2}, ` : ''}{addr.city}, {addr.state} - {addr.pincode}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Full Name *</label>

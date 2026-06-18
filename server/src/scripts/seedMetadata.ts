@@ -26,7 +26,7 @@ async function main() {
 
   console.log('Seeding Brands...');
   for (const b of brands) {
-    await Brand.findOneAndUpdate({ slug: b.slug }, b, { upsert: true, new: true });
+    await Brand.findOneAndUpdate({ slug: b.slug }, b, { upsert: true, returnDocument: 'after' });
   }
 
   // 2. Seed Categories & Sub-Categories
@@ -57,7 +57,7 @@ async function main() {
 
   console.log('Seeding Categories...');
   for (const cat of categories) {
-    await Category.findOneAndUpdate({ slug: cat.slug }, cat, { upsert: true, new: true });
+    await Category.findOneAndUpdate({ slug: cat.slug }, cat, { upsert: true, returnDocument: 'after' });
   }
 
   // 3. Seed Warehouses
@@ -69,7 +69,7 @@ async function main() {
 
   console.log('Seeding Warehouses...');
   for (const w of warehouses) {
-    await Warehouse.findOneAndUpdate({ code: w.code }, w, { upsert: true, new: true });
+    await Warehouse.findOneAndUpdate({ code: w.code }, w, { upsert: true, returnDocument: 'after' });
   }
 
   console.log('Metadata seeding completed successfully!');

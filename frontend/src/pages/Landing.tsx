@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
+import Footer from '../components/Footer';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -39,6 +40,9 @@ export default function LandingPage() {
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isGoldModalOpen, setIsGoldModalOpen] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
 
   // AI Chat States
   const [messages, setMessages] = useState([
@@ -257,8 +261,10 @@ export default function LandingPage() {
         keywords="eyeglaze, eye glaze, luxury glasses, home eye test, prescription eyeglasses, custom lenses, sunglasses"
       />
       
-      {/* Top Header */}
-      <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] sticky top-0 z-40 w-full transition-colors duration-300">
+      {/* ================= DESKTOP LAYOUT ================= */}
+      <div className="hidden md:block w-full">
+        {/* Top Header */}
+        <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] sticky top-0 z-40 w-full transition-colors duration-300">
         <div className="w-full px-4 sm:px-6 md:px-12 lg:px-16 h-16 flex items-center justify-between relative">
           
           {/* Left spacer/tagline (visible on desktop) */}
@@ -472,72 +478,387 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Shop by Category - Redesigned to Lenskart style */}
-        <section className="flex flex-col gap-6 w-full">
-          <div className="flex flex-col gap-8">
-            {[
-              {
-                title: 'Eyeglasses',
-                badge: 'with Power',
-                items: [
-                  { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men' },
-                  { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women' },
-                  { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids' },
-                  { label: 'On Sale', img: '/images/sale_eyeglasses.png', to: '/products?category=prescription&sort=price_asc', tag: 'Starts @ ₹800' }
-                ]
-              },
-              {
-                title: 'Sunglasses',
-                items: [
-                  { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men' },
-                  { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women' },
-                  { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids' },
-                  { label: 'On Sale', img: '/images/sale_sunglasses.png', to: '/products?category=sunglasses&sort=price_asc', tag: 'Starts @ ₹500' }
-                ]
-              }
-            ].map((sec, idx) => (
-              <div key={idx} className="flex flex-col gap-4">
-                {/* Section Header */}
-                <div className="flex items-center gap-2.5">
-                  <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-wider">{sec.title}</h3>
-                  {sec.badge && (
-                    <span className="bg-[#ECEFF9] text-[#2C3B75] px-2 py-0.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-wider shadow-sm">
-                      {sec.badge}
+        {/* Shop by Category - Desktop View */}
+        <section className="flex flex-col gap-8 w-full mt-2">
+          
+          {/* Eyeglasses Section */}
+          <div className="flex flex-col gap-4">
+            <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Eyeglasses</h3>
+            <div className="grid grid-cols-4 gap-6 w-full">
+              {[
+                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men' },
+                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women' },
+                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids' },
+                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses' }
+              ].map((item, idx) => (
+                <Link 
+                  key={idx} 
+                  to={item.to}
+                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
+                >
+                  <img 
+                    src={item.img} 
+                    alt={item.label} 
+                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                  />
+                  
+                  <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
+                    <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
+                    <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
+                      <span>Shop Now</span>
+                      <span>→</span>
                     </span>
-                  )}
-                </div>
-
-                {/* Grid Items */}
-                <div className="grid grid-cols-4 gap-3 sm:gap-6 w-full">
-                  {sec.items.map((item, itemIdx) => (
-                    <Link 
-                      key={itemIdx} 
-                      to={item.to}
-                      className="flex flex-col group cursor-pointer"
-                    >
-                      <div className="w-full aspect-square rounded-2xl bg-[#131314] border border-[#2A2A2D]/80 hover:border-[#D4A04D] overflow-hidden relative transition-all duration-300 p-0.5 bg-gradient-to-b from-[#1C1C1E] to-[#0E0E0F] flex items-center justify-center shadow-md">
-                        {item.tag && (
-                          <span className="absolute top-1 left-1 bg-[#2C3B75] text-white text-[6px] sm:text-[8px] font-black py-0.5 px-1 rounded sm:rounded-md tracking-wide uppercase z-10 shadow-sm leading-none">
-                            {item.tag}
-                          </span>
-                        )}
-                        <img 
-                          src={item.img} 
-                          alt={item.label} 
-                          className="w-full h-full object-cover rounded-xl transition-all duration-500 group-hover:scale-102"
-                        />
-                      </div>
-                      <span className="text-[9px] sm:text-xs text-center font-bold text-gray-400 group-hover:text-[#D4A04D] transition-colors mt-1.5 uppercase tracking-widest leading-none">
-                        {item.label}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </section>
 
+          {/* Sunglasses & Accessories Section */}
+          <div className="flex flex-col gap-4">
+            <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Sunglasses & Accessories</h3>
+            <div className="grid grid-cols-4 gap-6 w-full">
+              {[
+                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men' },
+                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women' },
+                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids' },
+                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories' }
+              ].map((item, idx) => (
+                <Link 
+                  key={idx} 
+                  to={item.to}
+                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
+                >
+                  <img 
+                    src={item.img} 
+                    alt={item.label} 
+                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                  />
+                  
+                  <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
+                    <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
+                    <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
+                      <span>Shop Now</span>
+                      <span>→</span>
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Reading Glasses Section */}
+          <div className="flex flex-col gap-4">
+            <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Reading Glasses</h3>
+            <div className="grid grid-cols-3 gap-6 w-full">
+              {[
+                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power' },
+                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses' },
+                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true' }
+              ].map((item, idx) => (
+                <Link 
+                  key={idx} 
+                  to={item.to}
+                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[1.35/1] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
+                >
+                  <img 
+                    src={item.img} 
+                    alt={item.label} 
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  
+                  <div className="relative z-10 bg-gradient-to-t from-black/85 via-black/75 to-transparent pt-10 pb-4 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
+                    <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
+                    <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
+                      <span>Shop Now</span>
+                      <span>→</span>
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+        </section>
+        </main>
+        <Footer />
+      </div> {/* END DESKTOP LAYOUT */}
+
+
+      {/* ================= MOBILE LAYOUT (Mockup Style) ================= */}
+      <div className="block md:hidden w-full bg-black text-white pb-6 font-sans">
+        {/* Mobile Header */}
+        <header className="bg-[#050505] sticky top-0 z-40 w-full px-4 h-16 flex items-center justify-between border-b border-[#151515]">
+          {/* Left: Profile or Hamburger Menu */}
+          {user ? (
+            <Link 
+              to="/account" 
+              className="w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer"
+              title="Profile"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </Link>
+          ) : (
+            <button 
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="w-9 h-9 flex items-center justify-center text-[#D4A04D] hover:text-[#C8923E] transition-colors cursor-pointer bg-transparent border-none"
+              aria-label="Open Menu"
+            >
+              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          )}
+
+          {/* Center: Logo */}
+          <Link to="/" className="flex flex-col items-center text-center select-none">
+            <span className="text-[#D4A04D] font-serif text-[18px] tracking-[0.25em] uppercase font-bold leading-none">EYEGLAZE</span>
+            <span className="text-[#D4A04D]/85 font-sans text-[8px] tracking-[0.4em] uppercase mt-0.5 font-bold">EYEWEAR</span>
+          </Link>
+
+          {/* Right: Search, Notification Bell, Shopping Bag */}
+          <div className="flex items-center gap-3.5">
+            {/* Search */}
+            <button 
+              onClick={() => navigate('/products')} 
+              className="text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer"
+              title="Search"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+
+            {/* Notification Bell */}
+            <button 
+              onClick={() => setIsNotificationsModalOpen(true)}
+              className="text-gray-300 hover:text-[#D4A04D] transition-colors relative cursor-pointer"
+              title="Notifications"
+            >
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[7.5px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-[#050505]">
+                3
+              </span>
+            </button>
+
+            {/* Shopping Bag */}
+            <Link to="/cart" className="text-gray-300 hover:text-[#D4A04D] transition-colors relative cursor-pointer" title="Shopping Cart">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[7.5px] w-3.5 h-3.5 rounded-full flex items-center justify-center border border-[#050505]">
+                {cartCount > 0 ? cartCount : 2}
+              </span>
+            </Link>
+          </div>
+        </header>
+
+        {/* Mobile Main Body */}
+        <main className="px-4 py-5 space-y-6">
+          
+          {/* Hero Slider Card */}
+          <div className="relative bg-gradient-to-br from-[#0d0d0e] to-[#050505] border border-zinc-800 rounded-2xl p-5 min-h-[170px] flex items-center justify-between overflow-hidden shadow-xl">
+            {/* Background design */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(212,160,77,0.04),transparent_60%)] pointer-events-none" />
+            
+            {/* Text details (Left) */}
+            <div className="flex flex-col items-start max-w-[55%] z-10 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-[1px] bg-[#D4A04D]" />
+                <span className="text-[#D4A04D] text-[8px] font-extrabold tracking-wider uppercase">SEE THE WORLD</span>
+              </div>
+              
+              <h1 className="text-md sm:text-lg font-black text-white leading-tight tracking-wide">
+                CLEARER. SHARPER.<br />YOU.
+              </h1>
+              
+              <p className="text-gray-400 text-[9px] leading-relaxed font-medium">
+                Premium Eyewear for Every Version of You.
+              </p>
+              
+              <button 
+                onClick={() => navigate('/products')} 
+                className="mt-1 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-extrabold tracking-wider text-[8px] uppercase py-1 px-3 rounded-lg transition-all flex items-center gap-1 bg-transparent cursor-pointer"
+              >
+                <span>SHOP NOW</span>
+                <span className="text-[9px] font-bold">→</span>
+              </button>
+            </div>
+
+            {/* Model Image (Right) */}
+            <div className="absolute right-0 bottom-0 top-0 w-[45%] h-full flex items-end">
+              <img 
+                src="/images/hero_model.png" 
+                alt="Model" 
+                className="w-full h-full object-cover object-center translate-y-1"
+              />
+            </div>
+          </div>
+
+          {/* Slider Pagination Dots */}
+          <div className="flex justify-center items-center gap-1.5 mt-1">
+            <span className="w-4 h-1 bg-[#D4A04D] rounded-full transition-all duration-300" />
+            <span className="w-1 h-1 bg-zinc-700 rounded-full transition-all duration-300" />
+          </div>
+
+          {/* Feature Badges Grid */}
+          <div className="grid grid-cols-4 border border-zinc-800/80 bg-[#070707] rounded-xl py-3.5 divide-x divide-zinc-800/60 shadow-md">
+            
+            {/* 100% Authentic */}
+            <div className="flex flex-col items-center justify-center text-center px-1">
+              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <span className="text-white text-[8.5px] font-black leading-tight">100%</span>
+              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">AUTHENTIC</span>
+            </div>
+
+            {/* Premium Quality */}
+            <div className="flex flex-col items-center justify-center text-center px-1">
+              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-white text-[8.5px] font-black leading-tight">Premium</span>
+              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">QUALITY</span>
+            </div>
+
+            {/* 7 Days Return */}
+            <div className="flex flex-col items-center justify-center text-center px-1">
+              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
+                </svg>
+              </div>
+              <span className="text-white text-[8.5px] font-black leading-tight">7 Days</span>
+              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">RETURN</span>
+            </div>
+
+            {/* Free Shipping */}
+            <div className="flex flex-col items-center justify-center text-center px-1">
+              <div className="w-7 h-7 rounded-full border border-[#D4A04D]/35 flex items-center justify-center text-[#D4A04D] mb-1">
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
+                </svg>
+              </div>
+              <span className="text-white text-[8.5px] font-black leading-tight">Free</span>
+              <span className="text-gray-500 text-[7.5px] font-extrabold uppercase tracking-wider leading-none mt-0.5">SHIPPING</span>
+            </div>
+
+          </div>
+
+          {/* Eyeglasses Section */}
+          <div className="space-y-3">
+            <h2 className="text-[10px] font-black text-white tracking-widest uppercase">EYEGLASSES</h2>
+            
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men' },
+                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women' },
+                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids' },
+                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses' }
+              ].map((item, idx) => (
+                <Link 
+                  key={idx} 
+                  to={item.to}
+                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
+                >
+                  <img 
+                    src={item.img} 
+                    alt={item.label} 
+                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-103"
+                  />
+                  
+                  <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-6 pb-2 px-1.5 flex flex-col items-center text-center justify-center">
+                    <span className="text-[8px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
+                    <span className="text-[#D4A04D] text-[6px] font-bold uppercase mt-1 tracking-widest flex items-center justify-center gap-0.5">
+                      <span>Shop Now</span>
+                      <span>→</span>
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Sunglasses & Accessories Section */}
+          <div className="space-y-3">
+            <h2 className="text-[10px] font-black text-white tracking-widest uppercase">SUNGLASSES & ACCESSORIES</h2>
+            
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men' },
+                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women' },
+                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids' },
+                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories' }
+              ].map((item, idx) => (
+                <Link 
+                  key={idx} 
+                  to={item.to}
+                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
+                >
+                  <img 
+                    src={item.img} 
+                    alt={item.label} 
+                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-103"
+                  />
+                  
+                  <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-6 pb-2 px-1.5 flex flex-col items-center text-center justify-center">
+                    <span className="text-[8px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
+                    <span className="text-[#D4A04D] text-[6px] font-bold uppercase mt-1 tracking-widest flex items-center justify-center gap-0.5">
+                      <span>Shop Now</span>
+                      <span>→</span>
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Reading Glasses Section */}
+          <div className="space-y-3 pb-8">
+            <h2 className="text-[10px] font-black text-white tracking-widest uppercase">READING GLASSES</h2>
+            
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power' },
+                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses' },
+                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true' }
+              ].map((item, idx) => (
+                <Link 
+                  key={idx} 
+                  to={item.to}
+                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[1.35/1] overflow-hidden group shadow-md flex flex-col justify-end"
+                >
+                  <img 
+                    src={item.img} 
+                    alt={item.label} 
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
+                  />
+                  
+                  <div className="relative z-10 bg-gradient-to-t from-black/85 via-black/70 to-transparent pt-5 pb-1.5 px-1.5 flex flex-col items-center text-center justify-center">
+                    <span className="text-[8.5px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
+                    <span className="text-[#D4A04D] text-[5.5px] font-bold uppercase mt-0.5 tracking-widest flex items-center justify-center gap-0.5">
+                      <span>Shop Now</span>
+                      <span>→</span>
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+        </main>
+      </div> {/* END MOBILE LAYOUT */}
+      {/* ================= SHARED PAGE CONTENT ================= */}
+      <main className="w-full px-4 sm:px-6 md:px-12 lg:px-16 py-6 flex flex-col gap-10 pb-24 md:pb-6">
         {/* Featured Products Section - Full View */}
         <section className="flex flex-col gap-6 w-full py-4 border-t border-[#1C1C1E]">
           <div className="flex items-center justify-between">
@@ -1067,58 +1388,65 @@ export default function LandingPage() {
             )}
           </div>
         </section>
+        <Footer />
+      </main> {/* END SHARED PAGE CONTENT */}
 
-      </main>
+        {/* Mobile Bottom Navigation Bar */}
+        <nav className="fixed bottom-0 md:hidden left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#1C1C1E] h-18 z-30 flex items-center justify-between px-3 backdrop-blur-md pb-safe">
+          
+          {/* Home */}
+          <Link to="/" className="flex flex-col items-center justify-center flex-1 gap-1 text-[#D4A04D]">
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
+            </svg>
+            <span className="text-[8px] font-black uppercase tracking-wider">HOME</span>
+          </Link>
 
+          {/* Wishlist */}
+          <Link to="/wishlist" className="flex flex-col items-center justify-center flex-1 gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            <span className="text-[8px] font-bold uppercase tracking-wider">WISHLIST</span>
+          </Link>
 
+          {/* GET GOLD (Floating Center Action) */}
+          <button 
+            onClick={() => setIsGoldModalOpen(true)}
+            className="flex-none mx-1 relative px-3 py-1.5 border border-[#D4A04D]/60 bg-gradient-to-b from-[#1c160e] to-[#0a0704] rounded-lg flex flex-col items-center justify-center shadow-lg transition-transform active:scale-95 cursor-pointer min-w-[105px]"
+          >
+            <div className="absolute -top-1 px-1 bg-[#D4A04D] text-black text-[6px] font-black rounded tracking-wide uppercase leading-none py-0.5">
+              GET GOLD
+            </div>
+            <div className="text-[#D4A04D] mt-1.5">
+              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+              </svg>
+            </div>
+            <span className="text-[#D4A04D] text-[8px] font-black uppercase tracking-wider mt-0.5">GET GOLD</span>
+            <span className="text-gray-500 text-[5px] font-semibold tracking-normal uppercase leading-none mt-0.5">Unlock Benefits</span>
+          </button>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#2A2A2D] h-16 z-30 flex items-center justify-around md:hidden px-2 backdrop-blur-md">
-        
-        {/* Home */}
-        <Link to="/" className="flex flex-col items-center gap-1 text-[#D4A04D]">
-          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" />
-          </svg>
-          <span className="text-[9px] font-bold uppercase tracking-wider">Home</span>
-        </Link>
+          {/* Orders */}
+          <Link to="/orders" className="flex flex-col items-center justify-center flex-1 gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            <span className="text-[8px] font-bold uppercase tracking-wider">ORDERS</span>
+          </Link>
 
-        {/* Categories */}
-        <Link to="/categories" className="flex flex-col items-center gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors">
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-            <rect x="3" y="3" width="7" height="7" rx="1.5" />
-            <rect x="14" y="3" width="7" height="7" rx="1.5" />
-            <rect x="3" y="14" width="7" height="7" rx="1.5" />
-            <rect x="14" y="14" width="7" height="7" rx="1.5" />
-          </svg>
-          <span className="text-[9px] font-semibold uppercase tracking-wider">Categories</span>
-        </Link>
+          {/* Wallet */}
+          <button 
+            onClick={() => setIsWalletModalOpen(true)}
+            className="flex flex-col items-center justify-center flex-1 gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors bg-transparent border-none p-0 cursor-pointer"
+          >
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            <span className="text-[8px] font-bold uppercase tracking-wider">WALLET</span>
+          </button>
 
-        {/* Wishlist */}
-        <Link to="/wishlist" className="flex flex-col items-center gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors">
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-          <span className="text-[9px] font-semibold uppercase tracking-wider">Wishlist</span>
-        </Link>
-
-        {/* Orders */}
-        <Link to="/orders" className="flex flex-col items-center gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors">
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-          </svg>
-          <span className="text-[9px] font-semibold uppercase tracking-wider">Orders</span>
-        </Link>
-
-        {/* Account */}
-        <Link to="/account" className="flex flex-col items-center gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors">
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-          <span className="text-[9px] font-semibold uppercase tracking-wider">Account</span>
-        </Link>
-
-      </nav>
+        </nav>
 
       {/* Mobile Menu Sidebar Drawer */}
       {isMobileMenuOpen && (
@@ -1453,6 +1781,168 @@ export default function LandingPage() {
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Custom GET GOLD Membership Modal */}
+      {isGoldModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div onClick={() => setIsGoldModalOpen(false)} className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
+          <div className="relative bg-gradient-to-br from-[#121213] to-[#0A0A0B] border border-[#D4A04D]/35 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl z-10 animate-fade-in p-6 flex flex-col gap-5">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/60">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">👑</span>
+                <div>
+                  <h3 className="text-[#D4A04D] text-sm font-black uppercase tracking-wider leading-none">GOLD MEMBERSHIP</h3>
+                  <span className="text-gray-500 text-[9px] font-bold uppercase mt-0.5 tracking-wider block">Exclusive Premium Club</span>
+                </div>
+              </div>
+              <button onClick={() => setIsGoldModalOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 text-left">
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Join over <strong className="text-white">500,000+ members</strong> who enjoy premium style and maximum savings.
+              </p>
+              <div className="space-y-3">
+                {[
+                  { title: 'BUY 1 GET 1 FREE', desc: 'On all prescription frames and sunglasses.', icon: '👓' },
+                  { title: 'EXPRESS SHIPPING', desc: 'Free guaranteed delivery within 48 hours.', icon: '🚚' },
+                  { title: 'EXTENDED WARRANTY', desc: '12 months full warranty + accidental damage cover.', icon: '🛡️' },
+                  { title: 'PRIORITY SUPPORT', desc: 'Direct line to our expert Refractionists.', icon: '📞' }
+                ].map((benefit, idx) => (
+                  <div key={idx} className="flex gap-3 items-start bg-[#161618]/60 p-2.5 rounded-xl border border-zinc-800/40">
+                    <span className="text-lg shrink-0">{benefit.icon}</span>
+                    <div className="flex flex-col">
+                      <span className="text-white text-[10px] font-black uppercase tracking-wider">{benefit.title}</span>
+                      <span className="text-gray-400 text-[9px] mt-0.5 leading-tight">{benefit.desc}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="pt-2 flex flex-col gap-2.5">
+              <div className="flex justify-between items-center text-xs px-1">
+                <span className="text-gray-500 font-bold uppercase tracking-wider text-[9px]">Annual Membership</span>
+                <span className="text-[#D4A04D] font-black text-sm">₹99 <span className="text-gray-500 font-normal text-[9px] line-through">₹499</span></span>
+              </div>
+              <button 
+                onClick={() => {
+                  alert('Thank you for choosing EyeGlaze Gold! Membership has been activated for your account.');
+                  setIsGoldModalOpen(false);
+                }} 
+                className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase py-3 rounded-xl tracking-wider transition-colors cursor-pointer border-none"
+              >
+                UPGRADE TO GOLD NOW
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Custom WALLET Balance Modal */}
+      {isWalletModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div onClick={() => setIsWalletModalOpen(false)} className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
+          <div className="relative bg-gradient-to-br from-[#121213] to-[#0A0A0B] border border-zinc-800 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl z-10 animate-fade-in p-6 flex flex-col gap-5">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/60">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">💳</span>
+                <div>
+                  <h3 className="text-white text-sm font-black uppercase tracking-wider leading-none">EYEGLAZE WALLET</h3>
+                  <span className="text-gray-500 text-[9px] font-bold uppercase mt-0.5 tracking-wider block">Manage Balance & Cashback</span>
+                </div>
+              </div>
+              <button onClick={() => setIsWalletModalOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+            <div className="bg-gradient-to-r from-[#1c1a16] via-[#101011] to-[#0d0d0e] border border-[#D4A04D]/25 rounded-2xl p-5 flex flex-col items-center justify-center gap-1 shadow-md">
+              <span className="text-gray-500 text-[9px] font-black uppercase tracking-wider">AVAILABLE BALANCE</span>
+              <span className="text-[#D4A04D] text-3xl font-black">₹500.00</span>
+              <span className="text-green-500 text-[8px] font-bold mt-1 uppercase tracking-wider">✓ 100% usable on next order</span>
+            </div>
+            <div className="space-y-3 text-left">
+              <span className="text-gray-500 text-[9px] font-black uppercase tracking-wider block">RECENT ACTIVITY</span>
+              <div className="space-y-2">
+                {[
+                  { title: 'Sign-up Bonus Credit', date: 'Jun 18, 2026', amount: '+₹100', type: 'credit' },
+                  { title: 'Referral Cashback Reward', date: 'Jun 15, 2026', amount: '+₹400', type: 'credit' }
+                ].map((tx, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/40 text-xs">
+                    <div className="flex flex-col">
+                      <span className="text-white text-[10px] font-bold">{tx.title}</span>
+                      <span className="text-gray-500 text-[8px] font-semibold mt-0.5">{tx.date}</span>
+                    </div>
+                    <span className="text-green-400 font-extrabold text-[10px]">{tx.amount}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button 
+                onClick={() => {
+                  alert('Referrals are credited instantly! Share link with friends: https://eyeglaze.com/invite');
+                }}
+                className="bg-transparent border border-zinc-800 hover:border-white text-white font-extrabold text-[9px] py-2.5 rounded-xl transition-all cursor-pointer"
+              >
+                REFER & EARN
+              </button>
+              <button 
+                onClick={() => setIsWalletModalOpen(false)}
+                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[9px] py-2.5 rounded-xl transition-colors cursor-pointer border-none"
+              >
+                CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Custom NOTIFICATIONS Center Drawer Modal */}
+      {isNotificationsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div onClick={() => setIsNotificationsModalOpen(false)} className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
+          <div className="relative bg-[#0E0E0E] border border-zinc-800 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl z-10 animate-fade-in p-5 flex flex-col gap-4">
+            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/60">
+              <h3 className="text-white text-sm font-black uppercase tracking-wider flex items-center gap-2">
+                <span>🔔</span>
+                Notifications
+              </h3>
+              <button onClick={() => setIsNotificationsModalOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-2.5 text-left max-h-[300px] overflow-y-auto pr-1">
+              {[
+                { title: 'Order Shipped!', desc: 'Your order #EG-9901 has been dispatched via BlueDart.', time: '2 hours ago', icon: '📦' },
+                { title: 'Home Eye Test Booked', desc: 'Optometrist visit scheduled for tomorrow at 2:00 PM.', time: '1 day ago', icon: '🩺' },
+                { title: 'Gold Coupon Active', desc: 'Use code {offerSlides[0]?.code || "GLAZEBOGO"} to buy 1 get 1 free paired frames.', time: '2 days ago', icon: '🎫' }
+              ].map((n, idx) => (
+                <div key={idx} className="bg-zinc-900/60 border border-zinc-800/40 rounded-xl p-3 flex gap-3 items-start">
+                  <span className="text-lg shrink-0 mt-0.5">{n.icon}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-white text-[10px] font-bold">{n.title}</span>
+                    <span className="text-gray-400 text-[9.5px] leading-snug">{n.desc}</span>
+                    <span className="text-gray-600 text-[8px] font-semibold mt-1">{n.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={() => setIsNotificationsModalOpen(false)}
+              className="w-full bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-white font-extrabold text-[10px] uppercase py-2.5 rounded-xl transition-all cursor-pointer"
+            >
+              Mark All as Read
+            </button>
           </div>
         </div>
       )}

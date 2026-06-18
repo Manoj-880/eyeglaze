@@ -7,6 +7,7 @@ const navItems = [
   { href: '/admin/orders', label: 'Orders', icon: '📦' },
   { href: '/admin/inventory', label: 'Inventory', icon: '🗂️' },
   { href: '/admin/users', label: 'Users', icon: '👥' },
+  { href: '/admin/tickets', label: 'Support Tickets', icon: '🎫' },
 ];
 
 export default function AdminLayout() {

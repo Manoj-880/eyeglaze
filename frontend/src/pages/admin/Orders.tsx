@@ -36,6 +36,7 @@ export default function AdminOrdersPage() {
   }, [filter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders();
   }, [fetchOrders]);
 

@@ -18,6 +18,7 @@ import ordersRoutes from './routes/orders.routes';
 import prescriptionsRoutes from './routes/prescriptions.routes';
 import couponsRoutes from './routes/coupons.routes';
 import wishlistRoutes from './routes/wishlist.routes';
+import ticketsRoutes from './routes/tickets.routes';
 
 import adminProductsRoutes from './routes/admin/products.routes';
 import adminInventoryRoutes from './routes/admin/inventory.routes';
@@ -25,6 +26,7 @@ import adminUsersRoutes from './routes/admin/users.routes';
 import adminOrdersRoutes from './routes/admin/orders.routes';
 import adminStatsRoutes from './routes/admin/stats.routes';
 import adminUploadRoutes from './routes/admin/upload.routes';
+import adminTicketsRoutes from './routes/admin/tickets.routes';
 
 dotenv.config();
 
@@ -112,6 +114,7 @@ app.use('/api/orders', requireAuth, ordersRoutes);
 app.use('/api/prescriptions', requireAuth, prescriptionsRoutes);
 app.use('/api/coupons', requireAuth, couponsRoutes);
 app.use('/api/wishlist', requireAuth, wishlistRoutes);
+app.use('/api/tickets', requireAuth, ticketsRoutes);
 
 // Admin routes
 const adminRouter = express.Router();
@@ -121,6 +124,7 @@ adminRouter.use('/users', adminUsersRoutes);
 adminRouter.use('/orders', adminOrdersRoutes);
 adminRouter.use('/stats', adminStatsRoutes);
 adminRouter.use('/upload', adminUploadRoutes);
+adminRouter.use('/tickets', adminTicketsRoutes);
 
 app.use('/api/admin', requireAdmin(), adminRouter);
 

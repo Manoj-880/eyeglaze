@@ -26,14 +26,14 @@ export async function sendOTP(req: Request, res: Response) {
       await User.findOneAndUpdate(
         { $or: [{ phone: phoneNum }, { mobile: phoneNum }] },
         { phone: phoneNum, mobile: phoneNum, countryCode, otp: otpHash, otpExpiry },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       await sendSMSOTP(phoneNum, countryCode, otp);
     } else {
       await User.findOneAndUpdate(
         { email: email.toLowerCase() },
         { email: email.toLowerCase(), otp: otpHash, otpExpiry },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       await sendEmailOTP(email, otp);
     }
@@ -231,6 +231,10 @@ export async function getMe(req: Request, res: Response) {
         membershipActive: user.membershipActive,
         addresses: user.addresses,
         wishlist: user.wishlist,
+        walletBalance: user.walletBalance ?? 0,
+        savedCards: user.savedCards ?? [],
+        linkedWallets: user.linkedWallets ?? [],
+        transactions: user.transactions ?? [],
       },
     });
   } catch (error) {
@@ -238,3 +242,301 @@ export async function getMe(req: Request, res: Response) {
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+export async function updateProfile(req: Request, res: Response) {
+  try {
+    const { name, email, phone, mobile } = req.body || {};
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (name !== undefined) user.name = name;
+    if (email !== undefined) user.email = email.toLowerCase();
+    if (phone !== undefined) {
+      user.phone = phone;
+      user.mobile = phone;
+    }
+    if (mobile !== undefined) {
+      user.mobile = mobile;
+      user.phone = mobile;
+    }
+
+    await user.save();
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || user.mobile,
+        mobile: user.mobile,
+        role: user.role,
+        membershipActive: user.membershipActive,
+        addresses: user.addresses,
+        wishlist: user.wishlist,
+      },
+    });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Email or phone number already in use' });
+    }
+    return res.status(500).json({ error: 'Failed to update profile' });
+  }
+}
+
+export async function addAddress(req: Request, res: Response) {
+  try {
+    const { fullName, mobile, pincode, line1, line2, city, state, type, isDefault } = req.body || {};
+    if (!fullName || !mobile || !pincode || !line1 || !city || !state) {
+      return res.status(400).json({ error: 'Required fields are missing' });
+    }
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const setAsDefault = isDefault || user.addresses.length === 0;
+    if (setAsDefault) {
+      user.addresses.forEach((addr: any) => {
+        addr.isDefault = false;
+      });
+    }
+
+    user.addresses.push({
+      fullName,
+      mobile,
+      pincode,
+      line1,
+      line2,
+      city,
+      state,
+      type: type || 'Home',
+      isDefault: setAsDefault,
+    });
+
+    await user.save();
+    return res.status(200).json({ success: true, addresses: user.addresses });
+  } catch (error) {
+    console.error('Add address error:', error);
+    return res.status(500).json({ error: 'Failed to add address' });
+  }
+}
+
+export async function updateAddress(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { fullName, mobile, pincode, line1, line2, city, state, type, isDefault } = req.body || {};
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const address = user.addresses.find((addr: any) => addr._id?.toString() === id);
+    if (!address) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    if (fullName !== undefined) address.fullName = fullName;
+    if (mobile !== undefined) address.mobile = mobile;
+    if (pincode !== undefined) address.pincode = pincode;
+    if (line1 !== undefined) address.line1 = line1;
+    if (line2 !== undefined) address.line2 = line2;
+    if (city !== undefined) address.city = city;
+    if (state !== undefined) address.state = state;
+    if (type !== undefined) address.type = type;
+
+    if (isDefault) {
+      user.addresses.forEach((addr: any) => {
+        addr.isDefault = addr._id?.toString() === id;
+      });
+    }
+
+    await user.save();
+    return res.status(200).json({ success: true, addresses: user.addresses });
+  } catch (error) {
+    console.error('Update address error:', error);
+    return res.status(500).json({ error: 'Failed to update address' });
+  }
+}
+
+export async function deleteAddress(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const addressIndex = user.addresses.findIndex((addr: any) => addr._id?.toString() === id);
+    if (addressIndex === -1) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    const wasDefault = user.addresses[addressIndex].isDefault;
+    user.addresses.splice(addressIndex, 1);
+
+    if (wasDefault && user.addresses.length > 0) {
+      user.addresses[0].isDefault = true;
+    }
+
+    await user.save();
+    return res.status(200).json({ success: true, addresses: user.addresses });
+  } catch (error) {
+    console.error('Delete address error:', error);
+    return res.status(500).json({ error: 'Failed to delete address' });
+  }
+}
+
+export async function setDefaultAddress(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const address = user.addresses.find((addr: any) => addr._id?.toString() === id);
+    if (!address) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    user.addresses.forEach((addr: any) => {
+      addr.isDefault = addr._id?.toString() === id;
+    });
+
+    await user.save();
+    return res.status(200).json({ success: true, addresses: user.addresses });
+  } catch (error) {
+    console.error('Set default address error:', error);
+    return res.status(500).json({ error: 'Failed to set default address' });
+  }
+}
+
+export async function addCard(req: Request, res: Response) {
+  try {
+    const { number, name, expiry, type, bgClass } = req.body || {};
+    if (!number || !name || !expiry || !type || !bgClass) {
+      return res.status(400).json({ error: 'Required fields are missing' });
+    }
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    user.savedCards.push({ number, name, expiry, type, bgClass });
+    await user.save();
+    return res.status(200).json({ success: true, savedCards: user.savedCards });
+  } catch (error) {
+    console.error('Add card error:', error);
+    return res.status(500).json({ error: 'Failed to add card' });
+  }
+}
+
+export async function deleteCard(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const cardIndex = user.savedCards.findIndex((c: any) => c._id?.toString() === id);
+    if (cardIndex === -1) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    user.savedCards.splice(cardIndex, 1);
+    await user.save();
+    return res.status(200).json({ success: true, savedCards: user.savedCards });
+  } catch (error) {
+    console.error('Delete card error:', error);
+    return res.status(500).json({ error: 'Failed to delete card' });
+  }
+}
+
+export async function toggleWallet(req: Request, res: Response) {
+  try {
+    const { walletId } = req.params;
+    const { linked, emailOrPhone } = req.body || {};
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.linkedWallets || user.linkedWallets.length === 0) {
+      user.linkedWallets = [
+        { walletId: 'gpay', name: 'Google Pay', icon: '🔍', linked: false },
+        { walletId: 'phonepe', name: 'PhonePe', icon: '📱', linked: false },
+        { walletId: 'paytm', name: 'Paytm Wallet', icon: '💸', linked: false },
+        { walletId: 'applepay', name: 'Apple Pay', icon: '🍎', linked: false },
+      ];
+    }
+
+    const wallet = user.linkedWallets.find((w: any) => w.walletId === walletId);
+    if (!wallet) {
+      return res.status(404).json({ error: 'Wallet not found' });
+    }
+    wallet.linked = linked;
+    wallet.emailOrPhone = linked ? emailOrPhone : undefined;
+
+    await user.save();
+    return res.status(200).json({ success: true, linkedWallets: user.linkedWallets });
+  } catch (error) {
+    console.error('Toggle wallet error:', error);
+    return res.status(500).json({ error: 'Failed to update wallet link' });
+  }
+}
+
+export async function addMoney(req: Request, res: Response) {
+  try {
+    const { amount, method } = req.body || {};
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    user.walletBalance = (user.walletBalance || 0) + numericAmount;
+    user.transactions.push({
+      type: 'Added',
+      amount: numericAmount,
+      date: new Date(),
+      description: `Added via ${method === 'upi' ? 'UPI' : 'Saved Card'}`,
+    });
+    await user.save();
+    return res.status(200).json({
+      success: true,
+      walletBalance: user.walletBalance,
+      transactions: user.transactions,
+    });
+  } catch (error) {
+    console.error('Add money error:', error);
+    return res.status(500).json({ error: 'Failed to add money' });
+  }
+}
+
+export async function deleteAccount(req: Request, res: Response) {
+  try {
+    await connectDB();
+    const user = await User.findByIdAndDelete(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    clearAuthCookie(res);
+    return res.status(200).json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    return res.status(500).json({ error: 'Failed to delete account' });
+  }
+}
+

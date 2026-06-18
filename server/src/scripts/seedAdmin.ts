@@ -51,7 +51,7 @@ async function main() {
       name: 'EyeGlaze Admin',
       isVerified: true,
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   console.log('Admin user seeded successfully!');

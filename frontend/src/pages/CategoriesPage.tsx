@@ -87,7 +87,7 @@ export default function CategoriesPage() {
             </div>
 
             {/* Grid Items */}
-            <div className="grid grid-cols-4 gap-2.5 sm:gap-5 w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5 w-full">
               {sec.items.map((item, itemIdx) => (
                 <Link 
                   key={itemIdx} 

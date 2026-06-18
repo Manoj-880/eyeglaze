@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SEO from '../components/SEO';
+import api from '../lib/api';
 
 interface Address {
-  id: string;
+  id?: string;
+  _id?: string;
   type: 'Home' | 'Work' | 'Other';
   fullName: string;
   mobile: string;
@@ -15,105 +18,234 @@ interface Address {
   isDefault: boolean;
 }
 
-interface SavedCard {
-  id: string;
-  brand: 'visa' | 'mastercard' | 'amex';
-  last4: string;
-  expMonth: string;
-  expYear: string;
-  holderName: string;
-}
-
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, checkAuth, logout } = useAuth();
+  const navigate = useNavigate();
   
   // Personal Info State
-  const [name, setName] = useState(user?.name || 'Charan');
-  const [email, setEmail] = useState(user?.email || 'c@gmail.com');
-  const [phone, setPhone] = useState(user?.phone || '+91 9876543210');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
-  // Saved Addresses State
-  const [addresses, setAddresses] = useState<Address[]>([
-    {
-      id: 'addr-1',
-      type: 'Home',
-      fullName: 'Charan Kumar',
-      mobile: '9876543210',
-      line1: '123, Luxury Heights, Sector 45',
-      line2: 'Near Central Park',
-      city: 'Gurugram',
-      state: 'Haryana',
-      pincode: '122003',
-      isDefault: true,
-    },
-    {
-      id: 'addr-2',
-      type: 'Work',
-      fullName: 'Charan Kumar',
-      mobile: '9876543210',
-      line1: 'EyeGlaze Tech Solutions, Building 10B',
-      line2: 'DLF Cyber City',
-      city: 'Gurugram',
-      state: 'Haryana',
-      pincode: '122002',
-      isDefault: false,
+  const handleDeleteAccount = async () => {
+    const confirm1 = window.confirm('Are you sure you want to permanently delete your account? This action is irreversible.');
+    if (!confirm1) return;
+
+    const confirm2 = window.confirm('WARNING: You will lose access to all your orders, wishlist, and wallet balance. Please confirm once more to delete permanently.');
+    if (!confirm2) return;
+
+    setIsDeletingAccount(true);
+    try {
+      await api.delete('/auth/profile');
+      await logout();
+      navigate('/');
+    } catch (err: any) {
+      console.error('Failed to delete account:', err);
+      alert(err.response?.data?.error || 'Failed to delete account.');
+    } finally {
+      setIsDeletingAccount(false);
     }
-  ]);
+  };
 
-  // Saved Payment Cards State
-  const [cards, setCards] = useState<SavedCard[]>([
-    {
-      id: 'card-1',
-      brand: 'visa',
-      last4: '4242',
-      expMonth: '12',
-      expYear: '2028',
-      holderName: 'CHARAN KUMAR',
-    },
-    {
-      id: 'card-2',
-      brand: 'mastercard',
-      last4: '8888',
-      expMonth: '08',
-      expYear: '2029',
-      holderName: 'CHARAN KUMAR',
+
+  // Address Form State
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
+  
+  const [formFullName, setFormFullName] = useState('');
+  const [formMobile, setFormMobile] = useState('');
+  const [formPincode, setFormPincode] = useState('');
+  const [formLine1, setFormLine1] = useState('');
+  const [formLine2, setFormLine2] = useState('');
+  const [formCity, setFormCity] = useState('');
+  const [formState, setFormState] = useState('');
+  const [formType, setFormType] = useState<'Home' | 'Work' | 'Other'>('Home');
+  const [formIsDefault, setFormIsDefault] = useState(false);
+  
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+
+  // Sync profile details and addresses on user load
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setEmail(user.email || '');
+      setPhone(user.phone || user.mobile || '');
+      setAddresses((user.addresses as Address[]) || []);
     }
-  ]);
+  }, [user]);
 
-  // Wallet State
-  const [walletBalance] = useState(1250);
-  const [transactions] = useState([
-    { id: 'tx-1', type: 'Refund', amount: 799, date: '2026-06-12', description: 'Refund for Order EGO-20260610-0002' },
-    { id: 'tx-2', type: 'Added', amount: 1000, date: '2026-06-01', description: 'Added via UPI' },
-    { id: 'tx-3', type: 'Paid', amount: -549, date: '2026-05-28', description: 'Paid for Order EGO-20260528-0019' }
-  ]);
-
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingProfile(true);
     setProfileSuccess(false);
-    setTimeout(() => {
-      setIsSavingProfile(false);
+    try {
+      await api.put('/auth/profile', { name, email, phone });
       setProfileSuccess(true);
+      await checkAuth();
       setTimeout(() => setProfileSuccess(false), 3000);
-    }, 1000);
+    } catch (err: any) {
+      console.error('Failed to save profile:', err);
+      alert(err.response?.data?.error || 'Failed to update profile.');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handleSetDefaultAddress = (id: string) => {
-    setAddresses(prev => prev.map(addr => ({
-      ...addr,
-      isDefault: addr.id === id
-    })));
+  const handleSetDefaultAddress = async (addrId: string) => {
+    try {
+      await api.put(`/auth/addresses/${addrId}/default`);
+      await checkAuth();
+    } catch (err: any) {
+      console.error('Failed to set default address:', err);
+      alert('Failed to set default address.');
+    }
   };
 
-  const handleDeleteAddress = (id: string) => {
-    setAddresses(prev => prev.filter(addr => addr.id !== id));
+  const handleDeleteAddress = async (addrId: string) => {
+    if (!window.confirm('Are you sure you want to delete this address?')) return;
+    try {
+      await api.delete(`/auth/addresses/${addrId}`);
+      await checkAuth();
+    } catch (err: any) {
+      console.error('Failed to delete address:', err);
+      alert('Failed to delete address.');
+    }
   };
 
-  const handleDeleteCard = (id: string) => {
-    setCards(prev => prev.filter(card => card.id !== id));
+  const handleAddAddressClick = () => {
+    setEditingAddress(null);
+    setFormFullName(user?.name || '');
+    setFormMobile(user?.phone || user?.mobile || '');
+    setFormPincode('');
+    setFormLine1('');
+    setFormLine2('');
+    setFormCity('');
+    setFormState('');
+    setFormType('Home');
+    setFormIsDefault(false);
+    setShowForm(true);
+  };
+
+  const handleEditAddressClick = (addr: Address) => {
+    setEditingAddress(addr);
+    setFormFullName(addr.fullName);
+    setFormMobile(addr.mobile);
+    setFormPincode(addr.pincode);
+    setFormLine1(addr.line1);
+    setFormLine2(addr.line2 || '');
+    setFormCity(addr.city);
+    setFormState(addr.state);
+    setFormType(addr.type);
+    setFormIsDefault(addr.isDefault);
+    setShowForm(true);
+  };
+
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formFullName || !formMobile || !formPincode || !formLine1 || !formCity || !formState) {
+      alert('Please fill out all required fields.');
+      return;
+    }
+
+    setIsSavingAddress(true);
+    try {
+      const payload = {
+        fullName: formFullName,
+        mobile: formMobile,
+        pincode: formPincode,
+        line1: formLine1,
+        line2: formLine2,
+        city: formCity,
+        state: formState,
+        type: formType,
+        isDefault: formIsDefault,
+      };
+
+      const addressId = editingAddress ? (editingAddress.id || editingAddress._id) : null;
+
+      if (editingAddress && addressId) {
+        await api.put(`/auth/addresses/${addressId}`, payload);
+      } else {
+        await api.post('/auth/addresses', payload);
+      }
+
+      await checkAuth();
+      setShowForm(false);
+      setEditingAddress(null);
+    } catch (err: any) {
+      console.error('Failed to save address:', err);
+      alert(err.response?.data?.error || 'Failed to save address.');
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          const data = await res.json();
+          if (data && data.address) {
+            const addr = data.address;
+            
+            if (addr.postcode) setFormPincode(addr.postcode);
+            
+            const cityVal = addr.city || addr.town || addr.village || addr.suburb || addr.county || '';
+            if (cityVal) setFormCity(cityVal);
+            
+            if (addr.state) setFormState(addr.state);
+            
+            const road = addr.road || addr.suburb || addr.neighbourhood || '';
+            const house = addr.house_number || '';
+            const line1Val = [house, road].filter(Boolean).join(', ');
+            if (line1Val) setFormLine1(line1Val);
+            
+            const line2Val = [addr.suburb, addr.neighbourhood].filter(Boolean).filter(val => val !== road).join(', ');
+            if (line2Val) setFormLine2(line2Val);
+
+            if (!line1Val && data.display_name) {
+              setFormLine1(data.display_name.split(',').slice(0, 3).join(',').trim());
+            }
+          } else {
+            alert('Could not resolve location. Please enter manually.');
+          }
+        } catch (err) {
+          console.error('Reverse geocoding error:', err);
+          alert('Failed to fetch details for location. Please enter address manually.');
+        } finally {
+          setIsDetectingLocation(false);
+        }
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        let msg = 'Failed to get location.';
+        if (error.code === error.PERMISSION_DENIED) {
+          msg = 'Location access denied. Please enable location permissions or enter address manually.';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          msg = 'Location information unavailable. Please enter address manually.';
+        } else if (error.code === error.TIMEOUT) {
+          msg = 'Location request timed out. Please try again or enter address manually.';
+        }
+        alert(msg);
+        setIsDetectingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   return (
@@ -121,89 +253,260 @@ export default function ProfilePage() {
       <SEO robots="noindex, nofollow" title="My Profile" />
       <div>
         <h1 className="text-2xl font-bold text-white mb-2">My Profile</h1>
-        <p className="text-gray-500 text-sm">Manage your personal settings, addresses, payment cards, and EyeGlaze wallet.</p>
+        <p className="text-gray-500 text-sm">Manage your personal settings and shipping addresses.</p>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
+      <div className="max-w-4xl space-y-8">
         
-        {/* Left Columns - Info, Cards & Wallet */}
-        <div className="lg:col-span-2 space-y-8">
-          
-          {/* Personal Information */}
-          <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <span>👤</span> Personal Information
-            </h2>
-            <form onSubmit={handleSaveProfile} className="space-y-4">
+        {/* Personal Information */}
+        <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <span>👤</span> Personal Information
+          </h2>
+          <form onSubmit={handleSaveProfile} className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Phone Number</label>
+                <input
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 pt-2">
+              <button
+                type="submit"
+                disabled={isSavingProfile}
+                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider disabled:opacity-50"
+              >
+                {isSavingProfile ? 'Saving...' : 'Save Changes'}
+              </button>
+              {profileSuccess && (
+                <span className="text-green-400 text-xs font-semibold animate-pulse">✓ Profile saved successfully!</span>
+              )}
+            </div>
+          </form>
+        </section>
+
+        {/* Address Form Container (Add/Edit Address) */}
+        {showForm && (
+          <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl space-y-4 transition-all">
+            <div className="flex justify-between items-center border-b border-[#2A2A2D] pb-3">
+              <h3 className="text-white font-bold text-base">
+                {editingAddress ? '✏️ Edit Address' : '➕ Add New Address'}
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => { setShowForm(false); setEditingAddress(null); }}
+                className="text-gray-500 hover:text-white text-xs font-bold uppercase transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAddress} className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-[#A7A7A7]">Quickly fill address details using your exact GPS location:</span>
+                <button
+                  type="button"
+                  onClick={handleGetCurrentLocation}
+                  disabled={isDetectingLocation}
+                  className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isDetectingLocation ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
+                      Detecting Location...
+                    </>
+                  ) : (
+                    <>
+                      <span>📍</span> Use Current Location
+                    </>
+                  )}
+                </button>
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Full Name</label>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Full Name *</label>
                   <input
                     type="text"
                     required
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                    value={formFullName}
+                    onChange={e => setFormFullName(e.target.value)}
+                    placeholder="Enter recipient name"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Phone Number</label>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Mobile Number *</label>
                   <input
                     type="tel"
                     required
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-3 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                    value={formMobile}
+                    onChange={e => setFormMobile(e.target.value)}
+                    placeholder="10-digit mobile number"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
                   />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Line 1 (Flat, House, Building) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formLine1}
+                    onChange={e => setFormLine1(e.target.value)}
+                    placeholder="Flat/House No., Building/Apartment Name, Street"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Line 2 (Area, Sector, Landmark)</label>
+                  <input
+                    type="text"
+                    value={formLine2}
+                    onChange={e => setFormLine2(e.target.value)}
+                    placeholder="Area, Sector, Landmark, Village"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">City/Town *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formCity}
+                    onChange={e => setFormCity(e.target.value)}
+                    placeholder="City"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">State *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formState}
+                    onChange={e => setFormState(e.target.value)}
+                    placeholder="State"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Pincode/Zip *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formPincode}
+                    onChange={e => setFormPincode(e.target.value)}
+                    placeholder="6-digit pincode"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white focus:border-[#D4A04D] focus:outline-none text-sm transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#A7A7A7] text-xs uppercase tracking-wide mb-1.5 font-semibold">Address Type</label>
+                  <div className="flex gap-3">
+                    {(['Home', 'Work', 'Other'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setFormType(t)}
+                        className={`flex-1 py-2.5 rounded-xl border text-xs font-bold uppercase transition-all ${
+                          formType === t 
+                            ? 'bg-[#D4A04D] text-black border-[#D4A04D]' 
+                            : 'bg-[#0B0B0C] text-[#A7A7A7] border-[#2A2A2D] hover:border-gray-700'
+                        }`}
+                      >
+                        {t === 'Home' ? '🏠 ' : t === 'Work' ? '🏢 ' : '📍 '}{t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 pt-2">
+              <div className="flex items-center gap-2.5 pt-2">
+                <input
+                  type="checkbox"
+                  id="defaultAddress"
+                  checked={formIsDefault}
+                  onChange={e => setFormIsDefault(e.target.checked)}
+                  className="w-4 h-4 rounded border-[#2A2A2D] bg-[#0B0B0C] text-[#D4A04D] focus:ring-0 focus:ring-offset-0"
+                />
+                <label htmlFor="defaultAddress" className="text-white text-xs select-none cursor-pointer">
+                  Set as Default Shipping Address
+                </label>
+              </div>
+
+              <div className="flex gap-4 pt-2 border-t border-[#2A2A2D]">
                 <button
                   type="submit"
-                  disabled={isSavingProfile}
+                  disabled={isSavingAddress}
                   className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider disabled:opacity-50"
                 >
-                  {isSavingProfile ? 'Saving...' : 'Save Changes'}
+                  {isSavingAddress ? 'Saving...' : 'Save Address'}
                 </button>
-                {profileSuccess && (
-                  <span className="text-green-400 text-xs font-semibold animate-pulse">✓ Profile saved successfully!</span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setEditingAddress(null); }}
+                  className="bg-transparent hover:bg-white/5 text-white border border-[#2A2A2D] font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider"
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </section>
+        )}
 
-          {/* Saved Addresses */}
-          <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>📍</span> Saved Addresses
-              </h2>
+        {/* Saved Addresses */}
+        <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <span>📍</span> Saved Addresses
+            </h2>
+            {!showForm && (
               <button 
                 type="button"
+                onClick={handleAddAddressClick}
                 className="text-[#D4A04D] text-xs font-bold uppercase hover:underline"
               >
                 + Add Address
               </button>
-            </div>
-            
-            {addresses.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 text-sm">No saved addresses.</div>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {addresses.map(addr => (
+            )}
+          </div>
+          
+          {addresses.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">No saved addresses.</div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-4">
+              {addresses.map(addr => {
+                const addrId = addr.id || addr._id || '';
+                return (
                   <div 
-                    key={addr.id} 
+                    key={addrId} 
                     className={`border rounded-xl p-4 flex flex-col justify-between transition-all relative ${
                       addr.isDefault 
                         ? 'border-[#D4A04D] bg-[#D4A04D]/5' 
@@ -235,116 +538,42 @@ export default function ProfilePage() {
                     <div className="flex gap-4 border-t border-[#2A2A2D] mt-4 pt-3 text-[11px] font-bold text-[#A7A7A7]">
                       {!addr.isDefault && (
                         <button 
-                          onClick={() => handleSetDefaultAddress(addr.id)} 
+                          onClick={() => handleSetDefaultAddress(addrId)} 
                           className="hover:text-white transition-colors"
                         >
                           Set Default
                         </button>
                       )}
-                      <button className="hover:text-white transition-colors">Edit</button>
                       <button 
-                        onClick={() => handleDeleteAddress(addr.id)} 
+                        onClick={() => handleEditAddressClick(addr)}
+                        className="hover:text-white transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteAddress(addrId)} 
                         className="hover:text-red-400 transition-colors text-red-500/80"
                       >
                         Delete
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Saved Payments */}
-          <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>💳</span> Saved Payment Cards
-              </h2>
-              <button 
-                type="button"
-                className="text-[#D4A04D] text-xs font-bold uppercase hover:underline"
-              >
-                + Add Card
-              </button>
+                );
+              })}
             </div>
+          )}
+        </section>
 
-            {cards.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 text-sm">No saved payment methods.</div>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-4">
-                {cards.map(card => (
-                  <div key={card.id} className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-5 hover:border-gray-700 transition-all flex justify-between items-start">
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-lg font-bold tracking-widest text-white uppercase">
-                          {card.brand === 'visa' ? 'VISA' : card.brand === 'mastercard' ? 'MC' : 'CARD'}
-                        </span>
-                        <span className="text-[10px] text-gray-500 font-bold uppercase">{card.brand}</span>
-                      </div>
-                      <div className="text-white text-sm font-semibold tracking-wider">
-                        •••• •••• •••• {card.last4}
-                      </div>
-                      <div className="text-[#A7A7A7] text-[10px] uppercase font-bold mt-2.5">
-                        Expires {card.expMonth}/{card.expYear}
-                      </div>
-                      <div className="text-gray-400 text-[11px] font-semibold mt-1">
-                        {card.holderName}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteCard(card.id)}
-                      className="text-red-500/80 hover:text-red-400 transition-colors text-xs font-bold"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* Right Column - Wallet Balance & Transactions */}
-        <div className="space-y-8">
-          
-          {/* EyeGlaze Wallet */}
-          <section className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-lg flex flex-col justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <span>👛</span> EyeGlaze Wallet
-              </h2>
-              <div className="bg-gradient-to-r from-[#D4A04D]/20 to-[#C8923E]/20 border border-[#D4A04D]/30 rounded-2xl p-5 text-center relative overflow-hidden">
-                <div className="absolute -right-6 -bottom-6 text-7xl opacity-10">👛</div>
-                <div className="text-xs text-[#D4A04D] font-bold uppercase tracking-wider mb-1">Available Balance</div>
-                <div className="text-3xl font-extrabold text-white">₹{walletBalance.toFixed(2)}</div>
-                <button 
-                  type="button"
-                  className="mt-4 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-2 px-5 rounded-lg text-[10px] tracking-wider transition-all"
-                >
-                  + Add Money
-                </button>
-              </div>
-            </div>
-
-            {/* Wallet Transactions */}
-            <div className="mt-6">
-              <h3 className="text-xs text-white uppercase tracking-wider font-bold mb-3">Recent Transactions</h3>
-              <div className="space-y-3">
-                {transactions.map(tx => (
-                  <div key={tx.id} className="flex justify-between items-start border-b border-[#2A2A2D] pb-2 text-xs">
-                    <div>
-                      <div className="text-white font-semibold">{tx.description}</div>
-                      <div className="text-[#A7A7A7] text-[10px] mt-0.5">{tx.date}</div>
-                    </div>
-                    <div className={`font-bold ${tx.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {tx.amount > 0 ? `+₹${tx.amount}` : `-₹${Math.abs(tx.amount)}`}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
+        {/* Delete Account */}
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            disabled={isDeletingAccount}
+            className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-bold uppercase py-2.5 px-6 rounded-xl transition-all text-xs tracking-wider cursor-pointer disabled:opacity-50"
+          >
+            {isDeletingAccount ? 'Deleting Account...' : 'Delete Account'}
+          </button>
         </div>
       </div>
     </div>

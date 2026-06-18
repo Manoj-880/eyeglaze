@@ -88,7 +88,6 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="text-[#D4A04D] text-3xl font-serif tracking-[0.3em] uppercase font-bold">EYEGLAZE</div>
-          <div className="text-[#A7A7A7] text-sm mt-1">/ EYEWEAR</div>
         </div>
 
         <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl">

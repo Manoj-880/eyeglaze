@@ -13,6 +13,32 @@ export interface IAddress {
   isDefault: boolean;
 }
 
+export interface ICard {
+  _id?: mongoose.Types.ObjectId;
+  number: string;
+  name: string;
+  expiry: string;
+  type: 'visa' | 'mastercard' | 'amex' | 'discover' | 'generic';
+  bgClass: string;
+}
+
+export interface IWallet {
+  _id?: mongoose.Types.ObjectId;
+  walletId: string;
+  name: string;
+  icon: string;
+  linked: boolean;
+  emailOrPhone?: string;
+}
+
+export interface ITransaction {
+  _id?: mongoose.Types.ObjectId;
+  type: 'Refund' | 'Added' | 'Paid';
+  amount: number;
+  date: Date;
+  description: string;
+}
+
 export interface IUser extends Document {
   phone?: string;
   mobile?: string;
@@ -26,6 +52,10 @@ export interface IUser extends Document {
   role: 'user' | 'admin' | 'customer' | 'store_manager' | 'support_agent';
   adminRole?: 'super_admin' | 'store_manager' | 'support_agent';
   addresses: IAddress[];
+  walletBalance: number;
+  savedCards: ICard[];
+  linkedWallets: IWallet[];
+  transactions: ITransaction[];
   wishlist: mongoose.Types.ObjectId[];
   savedPrescriptions: mongoose.Types.ObjectId[];
   membershipActive: boolean;
@@ -45,6 +75,29 @@ const AddressSchema = new Schema<IAddress>({
   state: String,
   type: { type: String, enum: ['Home', 'Work', 'Other'], default: 'Home' },
   isDefault: { type: Boolean, default: false },
+});
+
+const CardSchema = new Schema<ICard>({
+  number: String,
+  name: String,
+  expiry: String,
+  type: { type: String, enum: ['visa', 'mastercard', 'amex', 'discover', 'generic'], default: 'generic' },
+  bgClass: String,
+});
+
+const WalletSchema = new Schema<IWallet>({
+  walletId: String,
+  name: String,
+  icon: String,
+  linked: { type: Boolean, default: false },
+  emailOrPhone: String,
+});
+
+const TransactionSchema = new Schema<ITransaction>({
+  type: { type: String, enum: ['Refund', 'Added', 'Paid'] },
+  amount: Number,
+  date: { type: Date, default: Date.now },
+  description: String,
 });
 
 const UserSchema = new Schema<IUser>(
@@ -68,6 +121,18 @@ const UserSchema = new Schema<IUser>(
       enum: ['super_admin', 'store_manager', 'support_agent'],
     },
     addresses: [AddressSchema],
+    walletBalance: { type: Number, default: 0 },
+    savedCards: [CardSchema],
+    linkedWallets: {
+      type: [WalletSchema],
+      default: [
+        { walletId: 'gpay', name: 'Google Pay', icon: '🔍', linked: false },
+        { walletId: 'phonepe', name: 'PhonePe', icon: '📱', linked: false },
+        { walletId: 'paytm', name: 'Paytm Wallet', icon: '💸', linked: false },
+        { walletId: 'applepay', name: 'Apple Pay', icon: '🍎', linked: false },
+      ]
+    },
+    transactions: [TransactionSchema],
     wishlist: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
     savedPrescriptions: [{ type: Schema.Types.ObjectId, ref: 'Prescription' }],
     membershipActive: { type: Boolean, default: false },

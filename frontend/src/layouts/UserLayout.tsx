@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Footer from '../components/Footer';
 
 export default function UserLayout() {
   const { user, cartCount } = useAuth();
@@ -14,7 +15,7 @@ export default function UserLayout() {
   const isLensPage = location.pathname === '/lens';
 
   return (
-    <div className="min-h-screen bg-[#0B0B0C]">
+    <div className="min-h-screen bg-[#0B0B0C] w-full overflow-x-hidden">
       {!isLensPage && (
         <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] sticky top-0 z-50 w-full transition-colors duration-300">
         <div className="w-full px-4 sm:px-6 md:px-12 lg:px-16 h-16 flex items-center justify-between relative">
@@ -219,6 +220,8 @@ export default function UserLayout() {
       <main className="w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8">
         <Outlet />
       </main>
+
+      {!isLensPage && <Footer />}
     </div>
   );
 }

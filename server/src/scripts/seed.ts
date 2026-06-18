@@ -466,7 +466,7 @@ async function main() {
     await LensOption.findOneAndUpdate(
       { displayName: opt.displayName, kind: opt.kind },
       opt,
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
   console.log('Lens options seeded.');
@@ -872,7 +872,7 @@ async function main() {
 
   for (const prod of products) {
     const query = (prod as any)._id ? { _id: (prod as any)._id } : { sku: prod.sku };
-    await Product.findOneAndUpdate(query, prod, { upsert: true, new: true });
+    await Product.findOneAndUpdate(query, prod, { upsert: true, returnDocument: 'after' });
   }
   console.log('Products seeded.');
 
@@ -893,7 +893,7 @@ async function main() {
       name: 'EyeGlaze Admin',
       isVerified: true,
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
   console.log(`Admin user seeded (email: ${adminEmail}).`);
 
@@ -941,7 +941,7 @@ async function main() {
     await User.findOneAndUpdate(
       query,
       customer,
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
   console.log('Customer/user accounts seeded.');

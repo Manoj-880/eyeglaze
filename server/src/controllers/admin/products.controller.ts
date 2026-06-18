@@ -231,7 +231,7 @@ export async function updateAdminProduct(req: Request, res: Response) {
     const nextVersion = (existingProduct.currentVersion || 1) + 1;
     body.currentVersion = nextVersion;
 
-    const product = await Product.findByIdAndUpdate(id, { $set: body }, { new: true });
+    const product = await Product.findByIdAndUpdate(id, { $set: body }, { returnDocument: 'after' });
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
     // Sync Variants to ProductVariant collection

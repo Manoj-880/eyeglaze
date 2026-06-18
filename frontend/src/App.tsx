@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './routes/ProtectedRoute';
 import UserLayout from './layouts/UserLayout';
@@ -23,6 +24,14 @@ import Offers from './pages/Offers';
 import About from './pages/About';
 import Blogs from './pages/Blogs';
 import Contact from './pages/Contact';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+
+import Payments from './pages/Payments';
+import SupportQuestions from './pages/SupportQuestions';
+import SupportContact from './pages/SupportContact';
+import AboutEyeglaze from './pages/AboutEyeglaze';
+import RateUs from './pages/RateUs';
 
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/Products';
@@ -30,11 +39,21 @@ import AdminAddProductWizard from './pages/admin/AddProductWizard';
 import AdminOrders from './pages/admin/Orders';
 import AdminInventory from './pages/admin/Inventory';
 import AdminUsers from './pages/admin/Users';
+import AdminTickets from './pages/admin/Tickets';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Landing />} />
 
@@ -49,6 +68,8 @@ export default function App() {
             <Route path="/about" element={<About />} />
             <Route path="/blogs" element={<Blogs />} />
             <Route path="/contact" element={<Contact />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route
               path="/wishlist"
               element={
@@ -98,6 +119,46 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payments"
+              element={
+                <ProtectedRoute>
+                  <Payments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/support/questions"
+              element={
+                <ProtectedRoute>
+                  <SupportQuestions />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/support/contact"
+              element={
+                <ProtectedRoute>
+                  <SupportContact />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/about-eyeglaze"
+              element={
+                <ProtectedRoute>
+                  <AboutEyeglaze />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rate-us"
+              element={
+                <ProtectedRoute>
+                  <RateUs />
                 </ProtectedRoute>
               }
             />
@@ -157,6 +218,14 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <AdminUsers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tickets"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminTickets />
                 </ProtectedRoute>
               }
             />

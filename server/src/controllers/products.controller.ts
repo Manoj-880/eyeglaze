@@ -226,7 +226,7 @@ export async function updateProduct(req: Request, res: Response) {
     const id = req.params.id as string;
     const body = req.body || {};
 
-    const product = await Product.findByIdAndUpdate(id, { $set: body }, { new: true });
+    const product = await Product.findByIdAndUpdate(id, { $set: body }, { returnDocument: 'after' });
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
