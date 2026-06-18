@@ -7,6 +7,7 @@ const customerNavSections = [
     title: 'Account',
     items: [
       { href: '/account', label: 'Dashboard', icon: '🏠' },
+      { href: '/membership', label: 'Gold Membership', icon: '👑' },
       { href: '/orders', label: 'My Orders', icon: '📦' },
       { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
       { href: '/profile', label: 'My Profile', icon: '👤' },

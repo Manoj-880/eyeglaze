@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 import SEO from '../components/SEO';
 import Footer from '../components/Footer';
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { user, cartCount } = useAuth();
+  const { user, cartCount, checkAuth } = useAuth();
 
   // Carousel & Image state
   const [activeSlide, setActiveSlide] = useState(0);
@@ -35,6 +36,14 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('openGoldModal') === 'true') {
+      setIsGoldModalOpen(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Modal States
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
@@ -43,6 +52,42 @@ export default function LandingPage() {
   const [isGoldModalOpen, setIsGoldModalOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+
+  // Gold Membership States & Handlers
+  const [isActivatingGold, setIsActivatingGold] = useState(false);
+  const [goldError, setGoldError] = useState('');
+  const [goldSuccess, setGoldSuccess] = useState(false);
+
+  const handleQuickAddAndActivate = async () => {
+    if (!user) return;
+    setIsActivatingGold(true);
+    setGoldError('');
+    try {
+      const needed = Math.max(0, 129 - (user.walletBalance || 0));
+      // 1. Add money
+      await api.post('/auth/wallet/add', { amount: needed, method: 'upi' });
+      // 2. Activate membership
+      const res = await api.post('/auth/membership/activate');
+      if (res.data.success) {
+        setGoldSuccess(true);
+        await checkAuth();
+      }
+    } catch (err: any) {
+      setGoldError(err.response?.data?.error || 'Failed to complete transaction.');
+    } finally {
+      setIsActivatingGold(false);
+    }
+  };
+
+  const handleGoldArrowClick = () => {
+    setIsGoldModalOpen(false);
+    if (!user) {
+      navigate('/login', { state: { from: { pathname: '/membership' } } });
+    } else {
+      navigate('/membership');
+    }
+  };
+
 
   // AI Chat States
   const [messages, setMessages] = useState([
@@ -1792,59 +1837,314 @@ export default function LandingPage() {
 
       {/* 5. Custom GET GOLD Membership Modal */}
       {isGoldModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div onClick={() => setIsGoldModalOpen(false)} className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
-          <div className="relative bg-gradient-to-br from-[#121213] to-[#0A0A0B] border border-[#D4A04D]/35 w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl z-10 animate-fade-in p-6 flex flex-col gap-5">
-            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/60">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">👑</span>
-                <div>
-                  <h3 className="text-[#D4A04D] text-sm font-black uppercase tracking-wider leading-none">GOLD MEMBERSHIP</h3>
-                  <span className="text-gray-500 text-[9px] font-bold uppercase mt-0.5 tracking-wider block">Exclusive Premium Club</span>
-                </div>
-              </div>
-              <button onClick={() => setIsGoldModalOpen(false)} className="text-gray-400 hover:text-white p-1">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-4 text-left">
-              <p className="text-xs text-gray-400 leading-relaxed">
-                Join over <strong className="text-white">500,000+ members</strong> who enjoy premium style and maximum savings.
-              </p>
-              <div className="space-y-3">
-                {[
-                  { title: 'BUY 1 GET 1 FREE', desc: 'On all prescription frames and sunglasses.', icon: '👓' },
-                  { title: 'EXPRESS SHIPPING', desc: 'Free guaranteed delivery within 48 hours.', icon: '🚚' },
-                  { title: 'EXTENDED WARRANTY', desc: '12 months full warranty + accidental damage cover.', icon: '🛡️' },
-                  { title: 'PRIORITY SUPPORT', desc: 'Direct line to our expert Refractionists.', icon: '📞' }
-                ].map((benefit, idx) => (
-                  <div key={idx} className="flex gap-3 items-start bg-[#161618]/60 p-2.5 rounded-xl border border-zinc-800/40">
-                    <span className="text-lg shrink-0">{benefit.icon}</span>
-                    <div className="flex flex-col">
-                      <span className="text-white text-[10px] font-black uppercase tracking-wider">{benefit.title}</span>
-                      <span className="text-gray-400 text-[9px] mt-0.5 leading-tight">{benefit.desc}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="pt-2 flex flex-col gap-2.5">
-              <div className="flex justify-between items-center text-xs px-1">
-                <span className="text-gray-500 font-bold uppercase tracking-wider text-[9px]">Annual Membership</span>
-                <span className="text-[#D4A04D] font-black text-sm">₹99 <span className="text-gray-500 font-normal text-[9px] line-through">₹499</span></span>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center md:p-4 bg-black/85 backdrop-blur-sm">
+          <div className="relative bg-[#000000] w-full h-full md:h-[90vh] md:max-w-xl md:rounded-2xl border-none md:border md:border-[#D4A04D]/35 flex flex-col shadow-2xl overflow-hidden animate-fade-in text-white">
+            
+            {/* Header */}
+            <div className="flex justify-between items-center px-4 py-3 border-b border-zinc-800/80 bg-[#0A0A0B] sticky top-0 z-10">
               <button 
                 onClick={() => {
-                  alert('Thank you for choosing EyeGlaze Gold! Membership has been activated for your account.');
                   setIsGoldModalOpen(false);
+                  setGoldError('');
+                  setGoldSuccess(false);
                 }} 
-                className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase py-3 rounded-xl tracking-wider transition-colors cursor-pointer border-none"
+                className="text-gray-400 hover:text-white p-1 cursor-pointer bg-transparent border-none"
               >
-                UPGRADE TO GOLD NOW
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
+              
+              <div className="flex flex-col items-center">
+                <span className="text-[#D4A04D] font-serif text-sm tracking-[0.25em] uppercase font-black leading-none">EYEGLAZE</span>
+                <span className="text-[#D4A04D] text-[8px] font-black uppercase mt-1 tracking-[0.15em] leading-none">GOLD MEMBERSHIP</span>
+              </div>
+              
+              <div className="flex items-center gap-1 border border-[#D4A04D] rounded px-1.5 py-0.5 bg-[#D4A04D]/10">
+                <span className="text-[7px] font-black text-[#D4A04D] uppercase tracking-wider">BEST VALUE EVER</span>
+              </div>
             </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6 bg-[#000000] pb-24 scrollbar-none">
+              
+              {goldSuccess ? (
+                /* Success screen */
+                <div className="flex flex-col items-center justify-center py-10 text-center gap-4 animate-scale-up">
+                  <div className="w-16 h-16 bg-[#D4A04D]/20 border border-[#D4A04D] rounded-full flex items-center justify-center text-[#D4A04D] text-3xl">
+                    👑
+                  </div>
+                  <h3 className="text-white text-lg font-black uppercase tracking-wider">Congratulations!</h3>
+                  <p className="text-gray-400 text-xs px-6">
+                    You are now a premium <strong className="text-[#D4A04D]">EYEGLAZE GOLD MEMBER</strong>. Enjoy ₹1 frame exclusives, 1+1 free styling, priority support, and premium benefits!
+                  </p>
+                  
+                  {user && (
+                    <div className="bg-[#121213] border border-zinc-800 p-4 rounded-xl text-left w-full max-w-xs space-y-2 mt-2">
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-gray-500 font-bold uppercase">Member Name</span>
+                        <span className="text-white font-bold">{user.name}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-gray-500 font-bold uppercase">Status</span>
+                        <span className="text-green-400 font-black uppercase">Active Gold</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-gray-500 font-bold uppercase">Expires On</span>
+                        <span className="text-white font-bold">
+                          {user.membershipExpiry ? new Date(user.membershipExpiry as string | number | Date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '1 Year From Now'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={() => {
+                      setIsGoldModalOpen(false);
+                      setGoldSuccess(false);
+                    }}
+                    className="mt-6 px-8 py-3 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase rounded-xl tracking-wider transition-colors cursor-pointer border-none"
+                  >
+                    START SHOPPING
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Gold Member Card Banner */}
+                  <div className="bg-gradient-to-br from-[#1E1911] via-[#0D0C0A] to-[#050506] border border-[#D4A04D]/35 rounded-2xl p-5 relative overflow-hidden flex justify-between items-center shadow-lg">
+                    <div className="flex flex-col gap-2 z-10 max-w-[65%]">
+                      <h2 className="text-[#D4A04D] text-2xl font-black uppercase tracking-tight leading-none">₹1 = 1 FRAME</h2>
+                      <div className="inline-block self-start bg-[#D4A04D] text-black text-[7px] font-black uppercase px-2 py-0.5 rounded tracking-widest mt-0.5">
+                        GOLD MEMBERS EXCLUSIVE
+                      </div>
+                      
+                      <div className="flex flex-col gap-1.5 mt-2">
+                        {[
+                          'Selected Frames Only',
+                          'First Order Benefit',
+                          'Premium Eyewear at Just ₹1'
+                        ].map((pt) => (
+                          <div key={pt} className="flex items-center gap-1.5">
+                            <span className="text-[#D4A04D] text-xs">✓</span>
+                            <span className="text-gray-300 text-[9px] font-bold uppercase tracking-wide">{pt}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Frame image and membership fee badge */}
+                    <div className="flex flex-col items-end gap-3 z-10 relative">
+                      <div className="w-24 h-14 relative flex items-center justify-center">
+                        <img src="/images/cat_prescription.png" className="max-w-[85%] object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)] rotate-[-5deg]" />
+                        <img src="/images/cat_sunglasses.png" className="max-w-[85%] object-contain absolute top-4 left-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.6)] rotate-[10deg]" />
+                      </div>
+                      
+                      <div className="w-16 h-16 bg-[#000000] border-2 border-[#D4A04D] rounded-full flex flex-col items-center justify-center text-center shadow-md">
+                        <span className="text-[5px] text-gray-500 font-bold uppercase tracking-tighter leading-none">MEMBERSHIP</span>
+                        <span className="text-[5px] text-gray-500 font-bold uppercase tracking-tighter leading-none">FEE ONLY</span>
+                        <span className="text-[#D4A04D] text-xs font-black leading-none mt-0.5">₹129</span>
+                        <span className="text-[5px] text-gray-400 font-medium leading-none">/ YEAR</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Need 2 Frames Offer Block */}
+                  <div className="bg-[#121213] border border-zinc-800 rounded-xl p-4 flex items-center justify-between shadow">
+                    <div className="flex items-center gap-3">
+                      <div className="text-xl">🛒</div>
+                      <div className="flex flex-col gap-0.5">
+                        <h4 className="text-white text-[10px] font-black uppercase tracking-wider">NEED 2 FRAMES?</h4>
+                        <p className="text-gray-400 text-[8px] leading-tight max-w-[180px]">
+                          Get another frame for just ₹1 anytime before your membership expires.
+                        </p>
+                        <span className="text-[6px] text-gray-600 font-bold mt-0.5">⏱ Valid until your Gold Membership expiry date</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end text-right">
+                      <div className="flex items-center gap-1 text-[9px] text-[#D4A04D] font-bold">
+                        <span>👓 ₹1</span>
+                        <span>+</span>
+                        <span>👓 ₹1</span>
+                        <span>=</span>
+                        <span className="text-white">₹2</span>
+                      </div>
+                      <span className="text-gray-500 text-[6px] uppercase tracking-wider font-bold mt-0.5">TOTAL 2 FRAMES</span>
+                    </div>
+                  </div>
+
+                  {/* Error Box */}
+                  {goldError && (
+                    <div className="bg-red-500/10 border border-red-500/30 p-3.5 rounded-xl text-red-400 text-[10px] leading-relaxed flex flex-col gap-2">
+                      <div className="flex items-start gap-1.5">
+                        <span>⚠️</span>
+                        <span>{goldError}</span>
+                      </div>
+                      
+                      {goldError.includes('Insufficient wallet balance') && (
+                        <button 
+                          onClick={handleQuickAddAndActivate}
+                          className="self-start px-3 py-1.5 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[8px] uppercase rounded-lg tracking-wider transition-colors border-none cursor-pointer"
+                        >
+                          Add Wallet Money & Activate Now
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Benefits Grid */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[#D4A04D]">👑</span>
+                      <h3 className="text-white text-xs font-black uppercase tracking-wider">EYEGLAZE GOLD MEMBERSHIP BENEFITS</h3>
+                    </div>
+                    <p className="text-gray-500 text-[8px] font-bold uppercase tracking-wider mt-[-6px]">Premium Benefits. Maximum Savings.</p>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { title: '₹1 PER FRAME', desc: 'Get 1 frame for just ₹1. Take another for just ₹1 anytime. (Total 2 Frames = ₹2)', icon: '👓' },
+                        { title: '1+1 FREE FRAMES', desc: 'Buy 1 Get 1 Free on selected frames. Members Only.', icon: '➕' },
+                        { title: '90% WALLET REFUND', desc: 'If you don\'t take the second frame, get 90% refund to wallet. Valid for 30 days.', icon: '💰' },
+                        { title: '15% CASHBACK', desc: '15% cashback on selected frames. Members Only.', icon: '📉' },
+                        { title: 'FREE EYE TEST', desc: 'Partner stores / camps to free eye checkup.', icon: '🩺' },
+                        { title: 'PRIORITY SUPPORT', desc: 'Fast response and priority assistance for all your queries.', icon: '📞' }
+                      ].map((benefit, idx) => (
+                        <div key={idx} className="bg-[#121213] border border-zinc-800/60 p-3 rounded-xl flex flex-col gap-1 hover:border-[#D4A04D]/30 transition-all">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{benefit.icon}</span>
+                            <span className="text-white text-[9px] font-black uppercase tracking-wider leading-none">{benefit.title}</span>
+                          </div>
+                          <p className="text-gray-400 text-[8px] leading-snug mt-1">{benefit.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Contact Lens Section */}
+                  <div className="border-t border-zinc-800/80 pt-5 space-y-4">
+                    <div className="flex gap-4 bg-[#121213] border border-zinc-800/60 p-4 rounded-xl items-center">
+                      <div className="w-16 h-16 shrink-0 bg-zinc-900 rounded-lg flex items-center justify-center">
+                        <img src="/images/accessories.png" className="max-h-[90%] object-contain" />
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <h4 className="text-[#D4A04D] text-[9px] font-black uppercase tracking-wider leading-none">CONTACT LENS EXCLUSIVE BENEFITS</h4>
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[8px] text-gray-300 font-semibold">
+                          <div>• FREE LENS BOX</div>
+                          <div>• FREE LENS SOLUTION</div>
+                          <div>• 10% - 15% OFF</div>
+                          <div>• FREE DELIVERY</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-[#121213] border border-zinc-800/60 p-3 rounded-xl flex flex-col gap-1">
+                        <span className="text-yellow-500 text-xs">🏷️</span>
+                        <h5 className="text-white text-[9px] font-black uppercase tracking-wider">EXCLUSIVE DEALS</h5>
+                        <p className="text-gray-400 text-[8px] leading-relaxed">
+                          Gold Members ki matrame special offers & early access to new launches.
+                        </p>
+                      </div>
+                      <div className="bg-[#121213] border border-zinc-800/60 p-3 rounded-xl flex flex-col gap-1">
+                        <span className="text-yellow-500 text-xs">🎁</span>
+                        <h5 className="text-white text-[9px] font-black uppercase tracking-wider">MORE BENEFITS</h5>
+                        <div className="space-y-0.5 text-[8px] text-gray-400 font-medium">
+                          <div>✓ Exclusive Member Offers</div>
+                          <div>✓ Birthday Special Coupon</div>
+                          <div>✓ Early Access to Sales</div>
+                          <div>✓ Special Gold Deals</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Savings Comparison Table */}
+                  <div className="border-t border-zinc-800/80 pt-5 space-y-3">
+                    <h3 className="text-white text-xs font-black uppercase tracking-wider text-center">HOW MUCH YOU SAVE EVERY YEAR</h3>
+                    
+                    <div className="bg-[#121213] border border-zinc-800 rounded-xl overflow-hidden text-[8px] text-gray-400">
+                      <div className="grid grid-cols-3 bg-zinc-900 px-3 py-2 text-white font-bold">
+                        <div>BENEFITS</div>
+                        <div className="text-center">YOU SAVE</div>
+                        <div className="text-right">ANNUAL VALUE</div>
+                      </div>
+                      {[
+                        { name: '2 Frames for ₹2', save: '₹1,998', val: 'Up to ₹4,998' },
+                        { name: '1+1 Free Frames', save: '₹1,998', val: 'Up to ₹1,998' },
+                        { name: '15% Cashback', save: '₹1,000+', val: 'On selected frames' },
+                        { name: 'Contact Lens Discount', save: '₹1,200+', val: 'Freebies included' },
+                        { name: 'Free Eye Test', save: '₹500', val: 'At partner store' },
+                        { name: 'Others & Exclusive', save: '₹500+', val: 'Special sales' }
+                      ].map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-3 px-3 py-1.5 border-b border-zinc-800/40">
+                          <div className="text-white font-semibold">{item.name}</div>
+                          <div className="text-green-400 text-center font-bold">{item.save}</div>
+                          <div className="text-gray-500 text-right">{item.val}</div>
+                        </div>
+                      ))}
+                      <div className="grid grid-cols-3 bg-[#D4A04D]/10 px-3 py-2.5 text-white font-black border-t border-[#D4A04D]/20">
+                        <div className="text-[#D4A04D]">TOTAL SAVINGS</div>
+                        <div className="text-green-400 text-center text-[10px]">₹7,000+</div>
+                        <div className="text-gray-400 text-right font-medium">Itni bachat, sirf ₹129 pe!</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Safety icons */}
+                  <div className="grid grid-cols-4 gap-2 pt-2 text-center text-[7px] text-gray-500 font-bold uppercase tracking-wider">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-xs">🪙</span>
+                      <span>₹129/YEAR</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-xs">🛡️</span>
+                      <span>100% SECURE</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-xs">🗓️</span>
+                      <span>30-DAYS VALID</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-xs">⚡</span>
+                      <span>AUTO APPLY</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Sticky Bottom Bar */}
+            {!goldSuccess && (
+              <div className="absolute bottom-0 left-0 right-0 bg-[#0A0A0B] border-t border-zinc-800/80 px-4 py-3 flex items-center justify-between z-10">
+                {user?.membershipActive ? (
+                  <div className="w-full bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl p-3 text-center text-xs font-bold flex items-center justify-center gap-1.5">
+                    <span>👑</span>
+                    <span>ACTIVE GOLD MEMBERSHIP UNTIL {user.membershipExpiry ? new Date(user.membershipExpiry as string | number | Date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '1 YEAR'}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col">
+                      <span className="text-white text-xs font-black uppercase tracking-wider leading-none">JOIN GOLD MEMBERSHIP</span>
+                      <span className="text-[#D4A04D] text-lg font-black leading-none mt-1">₹129 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">/ Year Only</span></span>
+                      <span className="text-gray-500 text-[7px] font-bold mt-0.5 leading-none uppercase">Unlock All Premium Benefits</span>
+                    </div>
+
+                    <button 
+                      onClick={handleGoldArrowClick}
+                      disabled={isActivatingGold}
+                      className="w-12 h-12 rounded-full bg-[#D4A04D] hover:bg-[#C8923E] disabled:bg-gray-600 text-black flex items-center justify-center shadow-lg transition-transform active:scale-95 border-none cursor-pointer"
+                    >
+                      {isActivatingGold ? (
+                        <div className="w-5 h-5 border-2 border-t-black border-zinc-800 rounded-full animate-spin" />
+                      ) : (
+                        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                      )}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1870,30 +2170,48 @@ export default function LandingPage() {
             </div>
             <div className="bg-gradient-to-r from-[#1c1a16] via-[#101011] to-[#0d0d0e] border border-[#D4A04D]/25 rounded-2xl p-5 flex flex-col items-center justify-center gap-1 shadow-md">
               <span className="text-gray-500 text-[9px] font-black uppercase tracking-wider">AVAILABLE BALANCE</span>
-              <span className="text-[#D4A04D] text-3xl font-black">₹500.00</span>
+              <span className="text-[#D4A04D] text-3xl font-black">₹{user ? (user.walletBalance ?? 0).toFixed(2) : '0.00'}</span>
               <span className="text-green-500 text-[8px] font-bold mt-1 uppercase tracking-wider">✓ 100% usable on next order</span>
             </div>
             <div className="space-y-3 text-left">
               <span className="text-gray-500 text-[9px] font-black uppercase tracking-wider block">RECENT ACTIVITY</span>
-              <div className="space-y-2">
-                {[
-                  { title: 'Sign-up Bonus Credit', date: 'Jun 18, 2026', amount: '+₹100', type: 'credit' },
-                  { title: 'Referral Cashback Reward', date: 'Jun 15, 2026', amount: '+₹400', type: 'credit' }
-                ].map((tx, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/40 text-xs">
-                    <div className="flex flex-col">
-                      <span className="text-white text-[10px] font-bold">{tx.title}</span>
-                      <span className="text-gray-500 text-[8px] font-semibold mt-0.5">{tx.date}</span>
+              <div className="space-y-2 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
+                {user && user.transactions && user.transactions.length > 0 ? (
+                  user.transactions.slice().reverse().map((tx: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/40 text-xs">
+                      <div className="flex flex-col">
+                        <span className="text-white text-[10px] font-bold truncate max-w-[170px]">{tx.description}</span>
+                        <span className="text-gray-500 text-[8px] font-semibold mt-0.5">
+                          {new Date(tx.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <span className={`font-extrabold text-[10px] ${tx.type === 'Paid' ? 'text-red-400' : 'text-green-400'}`}>
+                        {tx.type === 'Paid' ? '-' : '+'}₹{tx.amount}
+                      </span>
                     </div>
-                    <span className="text-green-400 font-extrabold text-[10px]">{tx.amount}</span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <>
+                    {[
+                      { title: 'Sign-up Bonus Credit', date: 'Jun 18, 2026', amount: '+₹100', type: 'credit' },
+                      { title: 'Referral Cashback Reward', date: 'Jun 15, 2026', amount: '+₹400', type: 'credit' }
+                    ].map((tx, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-zinc-900/60 p-2.5 rounded-xl border border-zinc-800/40 text-xs opacity-55">
+                        <div className="flex flex-col">
+                          <span className="text-white text-[10px] font-bold">{tx.title}</span>
+                          <span className="text-gray-500 text-[8px] font-semibold mt-0.5">{tx.date}</span>
+                        </div>
+                        <span className="text-green-400 font-extrabold text-[10px]">{tx.amount}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-2">
               <button 
                 onClick={() => {
-                  alert('Referrals are credited instantly! Share link with friends: https://eyeglaze.com/invite');
+                  alert('Referrals are credited instantly! Share link with friends: https://web.eyeglaze.in/invite');
                 }}
                 className="bg-transparent border border-zinc-800 hover:border-white text-white font-extrabold text-[9px] py-2.5 rounded-xl transition-all cursor-pointer"
               >

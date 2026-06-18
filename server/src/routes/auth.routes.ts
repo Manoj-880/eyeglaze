@@ -16,7 +16,8 @@ import {
   deleteCard,
   toggleWallet,
   addMoney,
-  deleteAccount
+  deleteAccount,
+  activateMembership
 } from '../controllers/auth.controller';
 
 const router = Router();
@@ -40,5 +41,6 @@ router.post('/cards', requireAuth, addCard);
 router.delete('/cards/:id', requireAuth, deleteCard);
 router.put('/wallets/:walletId', requireAuth, toggleWallet);
 router.post('/wallet/add', requireAuth, addMoney);
+router.post('/membership/activate', requireAuth, activateMembership);
 
 export default router;

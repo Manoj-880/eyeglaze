@@ -14,6 +14,8 @@ export interface AuthUser {
   transactions?: any[];
   addresses?: any[];
   wishlist?: any[];
+  membershipActive?: boolean;
+  membershipExpiry?: string | Date;
   [key: string]: unknown;
 }
 

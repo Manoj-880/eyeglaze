@@ -19,6 +19,7 @@ import OrderDetail from './pages/OrderDetail';
 import Account from './pages/Account';
 import Profile from './pages/Profile';
 import Wishlist from './pages/Wishlist';
+import Membership from './pages/Membership';
 
 import Offers from './pages/Offers';
 import About from './pages/About';
@@ -26,6 +27,7 @@ import Blogs from './pages/Blogs';
 import Contact from './pages/Contact';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import CategoriesPage from './pages/CategoriesPage';
 
 import Payments from './pages/Payments';
 import SupportQuestions from './pages/SupportQuestions';
@@ -63,7 +65,7 @@ export default function App() {
             <Route path="/products" element={<Products />} />
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/lens" element={<LensSelection />} />
-            <Route path="/categories" element={<Products />} />
+            <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/offers" element={<Offers />} />
             <Route path="/about" element={<About />} />
             <Route path="/blogs" element={<Blogs />} />
@@ -111,6 +113,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Account />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/membership"
+              element={
+                <ProtectedRoute>
+                  <Membership />
                 </ProtectedRoute>
               }
             />

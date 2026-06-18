@@ -75,7 +75,7 @@ export default function LoginPage() {
       navigate('/admin/dashboard');
     } else {
       const from = location.state?.from 
-        ? (location.state.from.pathname + location.state.from.search) 
+        ? (location.state.from.pathname + (location.state.from.search || '')) 
         : '/account';
       navigate(from, { replace: true });
     }

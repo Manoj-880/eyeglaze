@@ -8,4 +8,4 @@ Disallow: /account
 Disallow: /profile
 Disallow: /wishlist
 
-Sitemap: https://eyeglaze.com/sitemap.xml
+Sitemap: https://web.eyeglaze.in/sitemap.xml

@@ -229,6 +229,7 @@ export async function getMe(req: Request, res: Response) {
         mobile: user.mobile,
         role: user.role,
         membershipActive: user.membershipActive,
+        membershipExpiry: user.membershipExpiry,
         addresses: user.addresses,
         wishlist: user.wishlist,
         walletBalance: user.walletBalance ?? 0,
@@ -539,4 +540,72 @@ export async function deleteAccount(req: Request, res: Response) {
     return res.status(500).json({ error: 'Failed to delete account' });
   }
 }
+
+export async function activateMembership(req: Request, res: Response) {
+  try {
+    await connectDB();
+    const user = await User.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (user.membershipActive) {
+      return res.status(400).json({ error: 'Your Gold Membership is already active!' });
+    }
+
+    const { paymentMethod } = req.body || {};
+    const membershipFee = 129;
+
+    if (paymentMethod !== 'razorpay') {
+      if ((user.walletBalance || 0) < membershipFee) {
+        return res.status(400).json({
+          error: `Insufficient wallet balance. You need ₹${membershipFee} in your wallet to purchase Gold Membership. Current balance: ₹${user.walletBalance || 0}`
+        });
+      }
+      // Deduct the fee
+      user.walletBalance = (user.walletBalance || 0) - membershipFee;
+    }
+    
+    // Set membership fields
+    user.membershipActive = true;
+    const expiry = new Date();
+    expiry.setFullYear(expiry.getFullYear() + 1);
+    user.membershipExpiry = expiry;
+
+    // Add transaction record
+    user.transactions.push({
+      type: 'Paid',
+      amount: membershipFee,
+      date: new Date(),
+      description: paymentMethod === 'razorpay' ? 'Gold Membership Activation (1 Year) via Razorpay' : 'Gold Membership Activation (1 Year)'
+    });
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gold Membership activated successfully!',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || user.mobile,
+        mobile: user.mobile,
+        role: user.role,
+        membershipActive: user.membershipActive,
+        membershipExpiry: user.membershipExpiry,
+        addresses: user.addresses,
+        wishlist: user.wishlist,
+        walletBalance: user.walletBalance,
+        savedCards: user.savedCards ?? [],
+        linkedWallets: user.linkedWallets ?? [],
+        transactions: user.transactions ?? [],
+      }
+    });
+  } catch (error) {
+    console.error('activateMembership error:', error);
+    return res.status(500).json({ error: 'Failed to activate membership' });
+  }
+}
+
 
