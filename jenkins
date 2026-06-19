@@ -13,9 +13,7 @@ pipeline {
                 sh """
                 curl -X POST \
                 -H "Content-Type: application/json" \
-                -d '{
-                    "text":"🚀 DEPLOYMENT STARTED\n\nProject: Eyeglaze\nBuild: #${BUILD_NUMBER}\n\nBuild URL:\n${BUILD_URL}"
-                }' \
+                -d '{"text":"🚀 Eyeglaze Deployment Started | Build #${BUILD_NUMBER}"}' \
                 "${ROCKETCHAT_WEBHOOK}"
                 """
             }
@@ -71,9 +69,7 @@ EOF
             sh """
             curl -X POST \
             -H "Content-Type: application/json" \
-            -d '{
-                "text":"✅ DEPLOYMENT SUCCESS\n\nProject: Eyeglaze\nBuild: #${BUILD_NUMBER}\n\nBuild URL:\n${BUILD_URL}"
-            }' \
+            -d '{"text":"✅ Eyeglaze Deployment Success | Build #${BUILD_NUMBER} | ${BUILD_URL}"}' \
             "${ROCKETCHAT_WEBHOOK}"
             """
  
@@ -94,14 +90,27 @@ ${env.BUILD_URL}
  
         failure {
  
-            sh """
+            script {
+ 
+                def errorLogs = currentBuild.rawBuild.getLog(20).join("\\n")
+                errorLogs = errorLogs
+                    .replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\n")
+ 
+                writeFile file: 'rocketchat.json', text: """
+{
+"text":"❌ Eyeglaze Deployment Failed | Build #${BUILD_NUMBER}\\n\\nReason:\\n${errorLogs}\\n\\nConsole Logs:\\n${BUILD_URL}console"
+}
+"""
+            }
+ 
+            sh '''
             curl -X POST \
             -H "Content-Type: application/json" \
-            -d '{
-                "text":"❌ DEPLOYMENT FAILED\n\nProject: Eyeglaze\nBuild: #${BUILD_NUMBER}\n\nLogs:\n${BUILD_URL}console"
-            }' \
-            "${ROCKETCHAT_WEBHOOK}"
-            """
+            --data @rocketchat.json \
+            "$ROCKETCHAT_WEBHOOK"
+            '''
  
             emailext(
                 subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
@@ -110,9 +119,6 @@ Deployment Failed.
  
 Job Name: ${env.JOB_NAME}
 Build Number: ${env.BUILD_NUMBER}
- 
-Build URL:
-${env.BUILD_URL}
  
 Console Logs:
 ${env.BUILD_URL}console
