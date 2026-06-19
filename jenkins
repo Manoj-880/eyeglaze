@@ -1,128 +1,124 @@
 pipeline {
-
+ 
     agent any
  
+    environment {
+        ROCKETCHAT_WEBHOOK = credentials('eyeglaze-rocketchat-webhook')
+    }
+ 
     stages {
-
-        stage('Deploy') {
-
+ 
+        stage('Notify Start') {
             steps {
-
+                sh """
+                curl -X POST \
+                -H "Content-Type: application/json" \
+                -d '{
+                    "text":"🚀 DEPLOYMENT STARTED\n\nProject: Eyeglaze\nBuild: #${BUILD_NUMBER}\n\nBuild URL:\n${BUILD_URL}"
+                }' \
+                "${ROCKETCHAT_WEBHOOK}"
+                """
+            }
+        }
+ 
+        stage('Deploy') {
+            steps {
                 sshagent(['ec2-ssh']) {
-
+ 
                     sh '''
-
-ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+ssh -o StrictHostKeyChecking=no root@13.205.141.197 << 'EOF'
  
 cd /root/eyeglaze
  
 echo "Pulling latest code..."
-
 git pull origin main
  
 echo "Building backend..."
-
 cd server
-
 npm install
-
 npm run build
  
 echo "Restarting PM2..."
-
 pm2 restart backend
  
 echo "Building frontend..."
-
 cd ../frontend
-
 npm install
-
 npm run build
  
 echo "Removing old frontend files..."
-
 rm -rf /var/www/eyeglaze/*
  
 echo "Copying new dist files..."
-
 cp -r dist/* /var/www/eyeglaze/
  
 echo "Restarting Nginx..."
-
 systemctl restart nginx
  
 echo "Deployment completed successfully."
  
 EOF
-
 '''
-
                 }
-
             }
-
         }
-
     }
  
     post {
-
+ 
         success {
-
+ 
+            sh """
+            curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text":"✅ DEPLOYMENT SUCCESS\n\nProject: Eyeglaze\nBuild: #${BUILD_NUMBER}\n\nBuild URL:\n${BUILD_URL}"
+            }' \
+            "${ROCKETCHAT_WEBHOOK}"
+            """
+ 
             emailext(
-
                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-
                 body: """
-
 Deployment Successful.
  
 Job Name: ${env.JOB_NAME}
-
 Build Number: ${env.BUILD_NUMBER}
  
 Build URL:
-
 ${env.BUILD_URL}
-
 """,
-
                 to: "speshway17@gmail.com"
-
             )
-
         }
  
         failure {
-
+ 
+            sh """
+            curl -X POST \
+            -H "Content-Type: application/json" \
+            -d '{
+                "text":"❌ DEPLOYMENT FAILED\n\nProject: Eyeglaze\nBuild: #${BUILD_NUMBER}\n\nLogs:\n${BUILD_URL}console"
+            }' \
+            "${ROCKETCHAT_WEBHOOK}"
+            """
+ 
             emailext(
-
                 subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-
                 body: """
-
 Deployment Failed.
  
 Job Name: ${env.JOB_NAME}
-
 Build Number: ${env.BUILD_NUMBER}
  
 Build URL:
-
 ${env.BUILD_URL}
  
-Please check Jenkins console logs.
-
+Console Logs:
+${env.BUILD_URL}console
 """,
-
                 to: "speshway17@gmail.com"
-
             )
-
         }
-
     }
-
 }
- 
