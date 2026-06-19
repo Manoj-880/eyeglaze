@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import 'product_detail_screen.dart';
+import '../../widgets/responsive_container.dart';
 
 class ProductsScreen extends StatefulWidget {
   final String? category;
@@ -81,78 +82,87 @@ class _ProductsScreenState extends State<ProductsScreen> {
           IconButton(icon: const Icon(Icons.search, color: AppColors.white), onPressed: () {}),
         ],
       ),
-      body: Column(
-        children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              controller: _searchCtrl,
-              style: const TextStyle(color: AppColors.white),
-              decoration: InputDecoration(
-                hintText: 'Search glasses, sunglasses...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.muted),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.tune, color: AppColors.gold),
-                  onPressed: () {},
-                ),
-              ),
-              onSubmitted: (_) => _loadProducts(),
-            ),
-          ),
-          // Category chips
-          SizedBox(
-            height: 44,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: _categories.length,
-              itemBuilder: (_, i) {
-                final cat = _categories[i];
-                final isSelected = cat == _selectedCategory;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () { setState(() => _selectedCategory = cat); _loadProducts(); },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.gold : AppColors.card,
-                        border: Border.all(color: isSelected ? AppColors.gold : AppColors.border),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(cat, style: TextStyle(color: isSelected ? Colors.white : AppColors.muted, fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                    ),
+      body: ResponsiveContainer(
+        maxWidth: 900,
+        child: Column(
+          children: [
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                controller: _searchCtrl,
+                style: const TextStyle(color: AppColors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search glasses, sunglasses...',
+                  prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.tune, color: AppColors.gold),
+                    onPressed: () {},
                   ),
-                );
-              },
+                ),
+                onSubmitted: (_) => _loadProducts(),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          // Product grid
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
-                : _products.isEmpty
-                    ? const Center(child: Text('No products found', style: AppTextStyles.muted))
-                    : GridView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          childAspectRatio: 0.62,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
+            // Category chips
+            SizedBox(
+              height: 44,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _categories.length,
+                itemBuilder: (_, i) {
+                  final cat = _categories[i];
+                  final isSelected = cat == _selectedCategory;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () { setState(() => _selectedCategory = cat); _loadProducts(); },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.gold : AppColors.card,
+                          border: Border.all(color: isSelected ? AppColors.gold : AppColors.border),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        itemCount: _products.length,
-                        itemBuilder: (_, i) => _ProductCard(
-                          product: _products[i],
-                          onTap: () => Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => ProductDetailScreen(product: _products[i]),
-                          )),
-                        ),
+                        child: Text(cat, style: TextStyle(color: isSelected ? Colors.white : AppColors.muted, fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
                       ),
-          ),
-        ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Product grid
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                  : _products.isEmpty
+                      ? const Center(child: Text('No products found', style: AppTextStyles.muted))
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            final width = constraints.maxWidth;
+                            final crossAxisCount = width > 750 ? 4 : (width > 500 ? 3 : 2);
+                            return GridView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                childAspectRatio: 0.62,
+                                crossAxisSpacing: 10,
+                                mainAxisSpacing: 10,
+                              ),
+                              itemCount: _products.length,
+                              itemBuilder: (_, i) => _ProductCard(
+                                product: _products[i],
+                                onTap: () => Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => ProductDetailScreen(product: _products[i]),
+                                )),
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'core/theme.dart';
 import 'services/auth_service.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/splash/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +27,7 @@ class EyeGlazeApp extends StatelessWidget {
         title: 'EyeGlaze',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: authService.isLoggedIn ? const HomeScreen() : const LoginScreen(),
+        home: const SplashScreen(),
         routes: {
           '/login': (_) => const LoginScreen(),
           '/home': (_) => const HomeScreen(),

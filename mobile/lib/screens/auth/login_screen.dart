@@ -4,6 +4,7 @@ import '../../widgets/trust_strip.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import 'phone_login_screen.dart';
 import 'email_login_screen.dart';
+import '../splash/splash_screen.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -22,12 +23,18 @@ class LoginScreen extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: AppColors.white),
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    onPressed: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SplashScreen()),
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.close, color: AppColors.white),
-                    onPressed: () => Navigator.of(context).maybePop(),
+                    onPressed: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SplashScreen()),
+                    ),
                   ),
                 ],
               ),

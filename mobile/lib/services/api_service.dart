@@ -139,4 +139,13 @@ class ApiService {
     final res = await _client.get(Uri.parse(_url('/profile')), headers: await _getHeaders());
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
+    final res = await _client.put(
+      Uri.parse(_url('/auth/profile')),
+      headers: await _getHeaders(),
+      body: jsonEncode(data),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
 }

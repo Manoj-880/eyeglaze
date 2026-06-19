@@ -8,6 +8,7 @@ import '../../widgets/eyeglaze_logo.dart';
 import '../../widgets/trust_strip.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../lens/lens_type_screen.dart';
+import '../../widgets/responsive_container.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -51,9 +52,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: ResponsiveContainer(
+        maxWidth: 600,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image carousel
             _ImageCarousel(product: p, currentIndex: _currentImage, onChanged: (i) => setState(() => _currentImage = i)),
@@ -215,51 +218,55 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ],
         ),
       ),
+      ),
       // Sticky bottom CTA bar
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: const Border(top: BorderSide(color: AppColors.border)),
-        ),
-        child: Row(
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('₹${p.sellingPrice.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 18)),
-                const Text('50% OFF', style: TextStyle(color: AppColors.gold, fontSize: 11)),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _addToCart,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.white,
-                  side: const BorderSide(color: AppColors.gold),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  minimumSize: Size.zero,
-                ),
-                child: const Text('ADD TO CART', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+      bottomNavigationBar: ResponsiveContainer(
+        maxWidth: 600,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            border: const Border(top: BorderSide(color: AppColors.border)),
+          ),
+          child: Row(
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('₹${p.sellingPrice.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+                  const Text('50% OFF', style: TextStyle(color: AppColors.gold, fontSize: 11)),
+                ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: _buyWithLens,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _addToCart,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.white,
+                    side: const BorderSide(color: AppColors.gold),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: Size.zero,
+                  ),
+                  child: const Text('ADD TO CART', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
-                child: const Text('BUY WITH LENS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _buyWithLens,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('BUY WITH LENS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

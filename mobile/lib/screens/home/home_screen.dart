@@ -5,6 +5,7 @@ import '../products/products_screen.dart';
 import '../cart/cart_screen.dart';
 import '../orders/orders_screen.dart';
 import '../account/account_screen.dart';
+import '../../widgets/responsive_container.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -69,7 +70,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _tabs[_currentTab],
+      body: ResponsiveContainer(
+        maxWidth: 600,
+        child: _tabs[_currentTab],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentTab,
         onTap: (i) => setState(() => _currentTab = i),
