@@ -52,7 +52,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (auth.isLoggedIn) {
         final api = ApiService(auth);
         final data = await api.getCart();
-        final items = (data['items'] ?? []) as List;
+        final items = ((data['cart'] as Map?)?['items'] ?? data['items'] ?? []) as List;
         if (mounted) {
           setState(() {
             _cartCount = items.length;

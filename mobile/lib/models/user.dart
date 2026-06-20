@@ -60,6 +60,7 @@ class User {
   final String role;
   final double walletBalance;
   final bool membershipActive;
+  final String? membershipExpiry;
   final List<dynamic>? transactions;
   final List<UserAddress> addresses;
 
@@ -71,6 +72,7 @@ class User {
     this.role = 'user',
     this.walletBalance = 0.0,
     this.membershipActive = false,
+    this.membershipExpiry,
     this.transactions,
     this.addresses = const [],
   });
@@ -84,6 +86,7 @@ class User {
       role: json['role'] ?? 'user',
       walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.0,
       membershipActive: json['membershipActive'] as bool? ?? false,
+      membershipExpiry: json['membershipExpiry'] as String?,
       transactions: json['transactions'] as List?,
       addresses: (json['addresses'] as List?)
               ?.map((a) => UserAddress.fromJson(a as Map<String, dynamic>))
@@ -100,6 +103,7 @@ class User {
         'role': role,
         'walletBalance': walletBalance,
         'membershipActive': membershipActive,
+        'membershipExpiry': membershipExpiry,
         'transactions': transactions,
         'addresses': addresses.map((a) => a.toJson()).toList(),
       };

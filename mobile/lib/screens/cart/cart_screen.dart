@@ -30,7 +30,7 @@ class _CartScreenState extends State<CartScreen> {
       final authService = context.read<AuthService>();
       final api = ApiService(authService);
       final data = await api.getCart();
-      final items = (data['items'] ?? []) as List;
+      final items = ((data['cart'] as Map?)?['items'] ?? data['items'] ?? []) as List;
       setState(() => _items = items.map((i) => CartItem.fromJson(i)).toList());
     } catch (e) {
       setState(() => _items = []);

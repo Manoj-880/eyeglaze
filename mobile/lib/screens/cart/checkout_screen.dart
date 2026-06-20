@@ -67,7 +67,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       
       // Load cart items
       final cartData = await api.getCart();
-      final cartItems = (cartData['items'] ?? []) as List;
+      final cartItems = ((cartData['cart'] as Map?)?['items'] ?? cartData['items'] ?? []) as List;
       _items = cartItems.map((i) => CartItem.fromJson(i)).toList();
 
       // Pre-fill default address from user profile
