@@ -25,15 +25,6 @@ interface Wallet {
 }
 
 
-interface Transaction {
-  id?: string;
-  _id?: string;
-  type: 'Refund' | 'Added' | 'Paid';
-  amount: number;
-  date: string | Date;
-  description: string;
-}
-
 export default function PaymentsPage() {
   const { user, checkAuth } = useAuth();
 

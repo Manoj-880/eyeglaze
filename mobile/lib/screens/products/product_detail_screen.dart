@@ -349,7 +349,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final items = [
       {'icon': Icons.verified, 'label': '100% Authentic\nOriginal Products'},
       {'icon': Icons.local_shipping, 'label': 'Just ₹99\nDelivery Charge'},
-      {'icon': Icons.flash_on, 'label': 'Fast Delivery\n2-4 Days'},
+      {'icon': Icons.flash_on, 'label': 'Fast Delivery\nGuaranteed'},
       {'icon': Icons.support_agent, 'label': '24/7 Support\nWe\'re here to help'},
     ];
     return Container(
@@ -598,39 +598,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         ),
                                       ),
                                     ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Fast Delivery Box
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                border: Border.all(color: AppColors.border),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.local_shipping_outlined, color: AppColors.gold, size: 16),
-                                  SizedBox(width: 6),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'Fast Delivery',
-                                          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                                        ),
-                                        SizedBox(height: 2),
-                                        Text(
-                                          '2-4 Days | Just ₹99 Delivery',
-                                          style: TextStyle(color: Colors.white38, fontSize: 7.5, fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ],
                               ),

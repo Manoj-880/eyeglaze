@@ -43,7 +43,6 @@ export default function CheckoutPage() {
 
   // Wallet
   const [useWallet, setUseWallet] = useState(false);
-  const [walletDeduction, setWalletDeduction] = useState(0);
 
   // Auto-fill from default saved address if available
   useEffect(() => {
@@ -502,7 +501,7 @@ export default function CheckoutPage() {
             </div>
 
             {/* Wallet Section */}
-            {user && user.walletBalance > 0 && (
+            {user && user.walletBalance !== undefined && user.walletBalance > 0 && (
               <div className="border-t border-[#2A2A2D]/60 pt-4">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input

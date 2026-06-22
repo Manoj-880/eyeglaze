@@ -593,19 +593,6 @@ export default function ProductDetailPage() {
                   </span>
                 </div>
               </div>
-
-              <div className="flex items-center gap-3 text-left">
-                <div className="text-[#D4A04D] bg-[#1e1a14] border border-[#D4A04D]/20 p-1.5 rounded-lg">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
-                  </svg>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-white text-[10px] font-bold">Fast Delivery</span>
-                  <span className="text-gray-500 text-[9px] font-semibold uppercase tracking-wider">2-4 Days</span>
-                </div>
-              </div>
             </div>
 
             {/* Quantity Selector */}
@@ -825,10 +812,10 @@ export default function ProductDetailPage() {
           )}
 
           {/* Call to Actions */}
-          <div className="flex flex-col md:flex-row items-center gap-3 pt-6 border-t border-[#2A2A2D] mt-6">
+          <div className="flex flex-col sm:flex-row items-center gap-3 pt-6 border-t border-[#2A2A2D] mt-6">
             <Link
               to={`/checkout?product=${product._id}&color=${selectedColor?.name || ''}&size=${selectedSize}&qty=${quantity}`}
-              className="w-full md:w-auto bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer select-none"
+              className="flex-1 w-full bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer select-none text-center"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -837,7 +824,7 @@ export default function ProductDetailPage() {
             </Link>
             <Link
               to={`/lens?product=${product._id}&color=${selectedColor?.name || ''}&size=${selectedSize}&qty=${quantity}`}
-              className="w-full md:w-auto bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md select-none"
+              className="flex-1 w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md select-none text-center"
             >
               <svg className="w-5 h-4" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="27" cy="15" r="10" />
@@ -848,12 +835,17 @@ export default function ProductDetailPage() {
             </Link>
           </div>
           <div className="flex items-center gap-3 pt-3">
-            <AddToCartButton productId={product._id} color={selectedColor?.name} product={product} />
+            <div className="flex-1">
+              <AddToCartButton productId={product._id} color={selectedColor?.name} product={product} />
+            </div>
             <Link
               to="/cart"
-              className="flex-1 text-[#D4A04D] text-xs font-bold uppercase tracking-wider hover:underline cursor-pointer text-center"
+              className="flex-1 border border-[#2A2A2D] hover:border-[#D4A04D] text-gray-400 hover:text-white font-extrabold uppercase py-3 px-5 rounded-lg text-[9px] tracking-wider transition-colors flex items-center justify-center gap-1.5 cursor-pointer select-none text-center bg-[#0E0E0E] whitespace-nowrap"
             >
-              View Cart
+              <svg className="w-4 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+              <span>View Cart</span>
             </Link>
           </div>
         </div>
