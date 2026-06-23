@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPrescription extends Document {
   user: mongoose.Types.ObjectId;
+  name?: string;
   RE?: { sph?: number; cyl?: number; axis?: number };
   LE?: { sph?: number; cyl?: number; axis?: number };
   pd?: number;
@@ -20,6 +21,7 @@ const EyeSchema = new Schema({ sph: Number, cyl: Number, axis: Number }, { _id: 
 const PrescriptionSchema = new Schema<IPrescription>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    name: String,
     RE: EyeSchema,
     LE: EyeSchema,
     pd: Number,

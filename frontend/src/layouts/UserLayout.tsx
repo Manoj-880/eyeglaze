@@ -351,7 +351,7 @@ export default function UserLayout() {
         <Outlet />
       </main>
 
-      {!isCustomerPage && <Footer />}
+      {!isCustomerPage && location.pathname !== '/lens' && location.pathname !== '/checkout' && location.pathname !== '/cart' && <Footer />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,7 @@ interface CartItem {
 
 export default function CheckoutPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Cart & Pricing
   const [items, setItems] = useState<CartItem[]>([]);
@@ -33,16 +34,11 @@ export default function CheckoutPage() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('cod'); // cod, card, upi
-
-  // Coupon & Discount
-  const [couponCode, setCouponCode] = useState('');
-  const [discount, setDiscount] = useState(0);
-  const [couponApplied, setCouponApplied] = useState(false);
-  const [couponMessage, setCouponMessage] = useState('');
+  const discount = 0;
 
   // Wallet
   const [useWallet, setUseWallet] = useState(false);
+  const [isNewAddressActive, setIsNewAddressActive] = useState(false);
 
   // Auto-fill from default saved address if available
   useEffect(() => {
@@ -56,7 +52,10 @@ export default function CheckoutPage() {
         setCity(defaultAddr.city || '');
         setState(defaultAddr.state || '');
         setPincode(defaultAddr.pincode || '');
+        setIsNewAddressActive(false);
       }
+    } else {
+      setIsNewAddressActive(true);
     }
   }, [user]);
   
@@ -110,32 +109,22 @@ export default function CheckoutPage() {
   
   const total = Math.max(0, subtotal + delivery - discount - walletAmount);
 
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) return;
-    try {
-      const res = await api.post('/cart/apply-coupon', { code: couponCode, cartTotal: subtotal + delivery });
-      if (res.data.valid) {
-        setDiscount(res.data.discount);
-        setCouponApplied(true);
-        setCouponMessage(res.data.message);
-      } else {
-        setCouponMessage(res.data.message);
-        setCouponApplied(false);
-        setDiscount(0);
+
+
+  // Load Razorpay Checkout script dynamically
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
       }
-    } catch (err) {
-      console.error('Failed to apply coupon:', err);
-      setCouponMessage('Failed to apply coupon');
-    }
-  };
+    };
+  }, []);
 
-  const handlePlaceOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fullName || !mobile || !line1 || !city || !state || !pincode) {
-      alert('Please fill out all required address fields.');
-      return;
-    }
-
+  const submitOrder = async (payMethod: string, payStatus: string) => {
     setSubmitting(true);
     try {
       const payload = {
@@ -148,8 +137,8 @@ export default function CheckoutPage() {
           state,
           pincode
         },
-        paymentMethod,
-        paymentStatus: 'paid'
+        paymentMethod: payMethod,
+        paymentStatus: payStatus
       };
 
       const res = await api.post('/orders', payload);
@@ -170,6 +159,52 @@ export default function CheckoutPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName || !mobile || !line1 || !city || !state || !pincode) {
+      alert('Please fill out all required address fields.');
+      return;
+    }
+
+    if (total === 0) {
+      await submitOrder('wallet', 'paid');
+      return;
+    }
+
+    if (typeof (window as any).Razorpay === 'undefined') {
+      alert('Razorpay payment gateway is still loading. Please try again in a few seconds.');
+      return;
+    }
+
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY || 'rzp_test_STX1H1R9XvVjSZ',
+      amount: Math.round(total * 100),
+      currency: 'INR',
+      name: 'EyeGlaze Eyewear',
+      description: 'Order Payment',
+      image: '/favicon.ico',
+      handler: async function (_response: any) {
+        await submitOrder('razorpay', 'paid');
+      },
+      prefill: {
+        name: fullName,
+        contact: mobile,
+        email: user?.email || '',
+      },
+      theme: {
+        color: '#D4A04D',
+      },
+      modal: {
+        ondismiss: function () {
+          console.log('Razorpay modal dismissed');
+        }
+      }
+    };
+
+    const rzp = new (window as any).Razorpay(options);
+    rzp.open();
   };
 
   if (loading) {
@@ -234,19 +269,69 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-0">
+    <div className="max-w-6xl mx-auto w-full">
       <SEO robots="noindex, nofollow" title="Secure Checkout" />
-      <h1 className="text-2xl font-bold text-white mb-8">Checkout</h1>
+      <div className="flex items-center gap-4 mb-8">
+        <button 
+          type="button"
+          onClick={() => navigate(-1)}
+          className="bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white rounded-xl p-2.5 transition-all cursor-pointer flex items-center justify-center"
+          title="Go Back"
+        >
+          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h1 className="text-2xl font-bold text-white">Checkout</h1>
+      </div>
 
-      <form onSubmit={handlePlaceOrder} className="grid lg:grid-cols-3 gap-8 items-start">
+      <form onSubmit={handlePlaceOrder} className="grid lg:grid-cols-3 gap-6 lg:gap-8 items-start">
         {/* Left Columns: Address Form & Payment */}
         <div className="lg:col-span-2 space-y-6">
           
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-6 space-y-4">
-            <h2 className="text-white font-bold text-base uppercase tracking-wider pb-2 border-b border-[#2A2A2D]">Shipping Address</h2>
+          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-4 sm:p-6 space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-[#2A2A2D] gap-2 flex-wrap">
+              <h2 className="text-white font-bold text-sm sm:text-base uppercase tracking-wider">Shipping Address</h2>
+              {user && user.addresses && user.addresses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isNewAddressActive) {
+                      // Cancel and select the default or first saved address
+                      if (user?.addresses) {
+                        const defaultAddr = (user.addresses as any[]).find(addr => addr.isDefault) || user.addresses[0];
+                        if (defaultAddr) {
+                          setFullName(defaultAddr.fullName || '');
+                          setMobile(defaultAddr.mobile || '');
+                          setLine1(defaultAddr.line1 || '');
+                          setLine2(defaultAddr.line2 || '');
+                          setCity(defaultAddr.city || '');
+                          setState(defaultAddr.state || '');
+                          setPincode(defaultAddr.pincode || '');
+                        }
+                      }
+                      setIsNewAddressActive(false);
+                    } else {
+                      // Switch to empty form for adding new address
+                      setFullName('');
+                      setMobile('');
+                      setLine1('');
+                      setLine2('');
+                      setCity('');
+                      setState('');
+                      setPincode('');
+                      setIsNewAddressActive(true);
+                    }
+                  }}
+                  className="text-[#D4A04D] hover:text-[#C8923E] hover:underline font-extrabold text-[10px] sm:text-xs uppercase tracking-wider bg-transparent border-none cursor-pointer p-0 transition-colors"
+                >
+                  {isNewAddressActive ? '✕ Use Saved Address' : '+ Add New Address'}
+                </button>
+              )}
+            </div>
             
-            {user && user.addresses && user.addresses.length > 0 && (
-              <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-4 mb-2">
+            {user && user.addresses && user.addresses.length > 0 && !isNewAddressActive && (
+              <div className="bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl p-3 sm:p-4 mb-2">
                 <label className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-wider block mb-2.5">
                   📋 Use a Saved Address
                 </label>
@@ -274,6 +359,7 @@ export default function CheckoutPage() {
                           setCity(addr.city || '');
                           setState(addr.state || '');
                           setPincode(addr.pincode || '');
+                          setIsNewAddressActive(false);
                         }}
                         className={`text-left p-3 rounded-xl border text-xs transition-all flex flex-col justify-between ${
                           isSelected 
@@ -299,169 +385,107 @@ export default function CheckoutPage() {
                       </button>
                     );
                   })}
-
-                  {/* New Address Card Option */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFullName('');
-                      setMobile('');
-                      setLine1('');
-                      setLine2('');
-                      setCity('');
-                      setState('');
-                      setPincode('');
-                    }}
-                    className={`text-left p-3 rounded-xl border text-xs transition-all flex flex-col justify-center items-center h-full min-h-[96px] ${
-                      !user.addresses.some((addr: any) => 
-                        fullName === addr.fullName && 
-                        mobile === addr.mobile && 
-                        line1 === addr.line1 && 
-                        line2 === (addr.line2 || '') && 
-                        city === addr.city && 
-                        state === addr.state && 
-                        pincode === addr.pincode
-                      )
-                        ? 'border-[#D4A04D] bg-[#D4A04D]/5 text-[#D4A04D] shadow-[0_0_10px_rgba(212,160,77,0.1)]' 
-                        : 'border-[#2A2A2D] bg-[#131314] text-gray-400 hover:border-gray-700'
-                    }`}
-                  >
-                    <span className="text-lg mb-1">➕</span>
-                    <span className="font-bold text-[10px] uppercase tracking-wider text-center">New Address</span>
-                  </button>
                 </div>
               </div>
             )}
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Full Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-              </div>
+            {(!user || !user.addresses || user.addresses.length === 0 || isNewAddressActive) && (
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    placeholder="John Doe"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
 
-              <div>
-                <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Mobile Number *</label>
-                <input
-                  type="tel"
-                  required
-                  pattern="[0-9]{10}"
-                  value={mobile}
-                  onChange={e => setMobile(e.target.value)}
-                  placeholder="10-digit number"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-              </div>
-              
-              <div>
-                <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Pincode *</label>
-                <input
-                  type="text"
-                  required
-                  pattern="[0-9]{6}"
-                  value={pincode}
-                  onChange={e => setPincode(e.target.value)}
-                  placeholder="6-digit code"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-              </div>
+                <div>
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Mobile Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    pattern="[0-9]{10}"
+                    value={mobile}
+                    onChange={e => setMobile(e.target.value)}
+                    placeholder="10-digit number"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Pincode *</label>
+                  <input
+                    type="text"
+                    required
+                    pattern="[0-9]{6}"
+                    value={pincode}
+                    onChange={e => setPincode(e.target.value)}
+                    placeholder="6-digit code"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
 
-              <div className="sm:col-span-2">
-                <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Flat, House no., Building, Apartment *</label>
-                <input
-                  type="text"
-                  required
-                  value={line1}
-                  onChange={e => setLine1(e.target.value)}
-                  placeholder="Address Line 1"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-              </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Flat, House no., Building, Apartment *</label>
+                  <input
+                    type="text"
+                    required
+                    value={line1}
+                    onChange={e => setLine1(e.target.value)}
+                    placeholder="Address Line 1"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
 
-              <div className="sm:col-span-2">
-                <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Area, Street, Sector, Village</label>
-                <input
-                  type="text"
-                  value={line2}
-                  onChange={e => setLine2(e.target.value)}
-                  placeholder="Address Line 2 (Optional)"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-              </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Area, Street, Sector, Village</label>
+                  <input
+                    type="text"
+                    value={line2}
+                    onChange={e => setLine2(e.target.value)}
+                    placeholder="Address Line 2 (Optional)"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
 
-              <div>
-                <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Town/City *</label>
-                <input
-                  type="text"
-                  required
-                  value={city}
-                  onChange={e => setCity(e.target.value)}
-                  placeholder="City"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-              </div>
+                <div>
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">Town/City *</label>
+                  <input
+                    type="text"
+                    required
+                    value={city}
+                    onChange={e => setCity(e.target.value)}
+                    placeholder="City"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
 
-              <div>
-                <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">State *</label>
-                <input
-                  type="text"
-                  required
-                  value={state}
-                  onChange={e => setState(e.target.value)}
-                  placeholder="State"
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
+                <div>
+                  <label className="text-[#A7A7A7] text-xs uppercase tracking-wide block mb-1">State *</label>
+                  <input
+                    type="text"
+                    required
+                    value={state}
+                    onChange={e => setState(e.target.value)}
+                    placeholder="State"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Payment Method */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-6 space-y-4">
-            <h2 className="text-white font-bold text-base uppercase tracking-wider pb-2 border-b border-[#2A2A2D]">Payment Method</h2>
-            
-            <div className="space-y-3">
-              {[
-                { id: 'cod', title: 'Cash on Delivery (COD)', desc: 'Pay with cash upon package arrival' },
-                { id: 'card', title: 'Credit / Debit Card', desc: 'Secure payment via Visa, Mastercard, RuPay' },
-                { id: 'upi', title: 'UPI / NetBanking', desc: 'Instant transfer via GooglePay, PhonePe, Paytm' }
-              ].map((method) => {
-                const isChecked = paymentMethod === method.id;
-                return (
-                  <label
-                    key={method.id}
-                    className={`flex items-start gap-4 p-4 border rounded-xl cursor-pointer hover:border-[#D4A04D]/60 transition-colors ${
-                      isChecked ? 'border-[#D4A04D] bg-[#131314]' : 'border-[#2A2A2D]'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="payment"
-                      checked={isChecked}
-                      onChange={() => setPaymentMethod(method.id)}
-                      className="accent-[#D4A04D] mt-1"
-                    />
-                    <div>
-                      <span className="text-white font-bold text-sm block">{method.title}</span>
-                      <span className="text-[#A7A7A7] text-xs block mt-0.5">{method.desc}</span>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Order Summary */}
         <div className="space-y-4">
           {/* Membership Banner */}
           {!user?.membershipActive && (
-            <div className="bg-gradient-to-r from-[#1E1911] to-[#0E0E0F] border border-[#D4A04D]/30 rounded-xl p-4 flex items-center justify-between gap-4">
+            <div className="bg-gradient-to-r from-[#1E1911] to-[#0E0E0F] border border-[#D4A04D]/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 border border-[#D4A04D]/40 rounded-lg flex items-center justify-center text-[#D4A04D] font-extrabold text-sm flex-shrink-0 bg-[#0E0E0F]">
                   EG
@@ -474,7 +498,7 @@ export default function CheckoutPage() {
               </div>
               <Link
                 to="/membership"
-                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4 py-2.5 rounded-lg transition-colors cursor-pointer border-none shrink-0"
+                className="bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[10px] uppercase px-4 py-2.5 rounded-lg transition-colors cursor-pointer border-none shrink-0 w-full sm:w-auto text-center"
               >
                 Join Now
               </Link>
@@ -507,28 +531,7 @@ export default function CheckoutPage() {
               ))}
             </div>
 
-            {/* Coupon Section */}
-            <div className="border-t border-[#2A2A2D]/60 pt-4">
-              <h3 className="text-white font-bold text-xs uppercase tracking-wider mb-3">Apply Coupon</h3>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value)}
-                  placeholder="Enter coupon code"
-                  className="flex-1 bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
-                />
-                <button
-                  onClick={handleApplyCoupon}
-                  className="bg-[#1C1C1E] border border-[#2A2A2D] hover:border-[#D4A04D] text-white font-bold text-xs uppercase px-4 py-2 rounded-lg transition-colors"
-                >
-                  Apply
-                </button>
-              </div>
-              {couponMessage && (
-                <p className={`text-[10px] mt-2 ${couponApplied ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>
-              )}
-            </div>
+
 
             {/* Wallet Section */}
             {user && user.walletBalance !== undefined && user.walletBalance > 0 && (
@@ -559,12 +562,7 @@ export default function CheckoutPage() {
                 <span className="text-[#A7A7A7]">Shipping & Delivery</span>
                 <span className="text-white">{delivery === 0 ? <span className="text-green-400 font-bold">FREE</span> : `₹${delivery}`}</span>
               </div>
-              {discount > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-[#A7A7A7]">Discount</span>
-                  <span className="text-green-400 font-bold">-₹{discount}</span>
-                </div>
-              )}
+
               {useWallet && walletAmount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-[#A7A7A7]">Wallet Deduction</span>

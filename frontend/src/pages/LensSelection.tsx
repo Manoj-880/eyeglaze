@@ -123,6 +123,8 @@ export default function LensSelection() {
   const [prescriptionFileName, setPrescriptionFileName] = useState('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [uploadingPrescription, setUploadingPrescription] = useState(false);
+  const [prescriptionName, setPrescriptionName] = useState('');
+  const [prescriptionFileToUpload, setPrescriptionFileToUpload] = useState<File | null>(null);
   
   // Matches defaults in screenshots
   const [reSph, setReSph] = useState('-1.25');
@@ -150,18 +152,22 @@ export default function LensSelection() {
   };
 
   const formatOptionLabel = (pr: any) => {
+    const date = new Date(pr.createdAt).toLocaleDateString('en-IN', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
     if (pr.uploadedFile || pr.imageUrl) {
-      const date = new Date(pr.createdAt).toLocaleDateString('en-IN', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-      return `📄 Uploaded Prescription Document (Saved on ${date})`;
+      return pr.name 
+        ? `📄 ${pr.name} (Uploaded on ${date})`
+        : `📄 Uploaded Prescription Document (Saved on ${date})`;
     }
     const reStr = `R: ${formatValue(pr.RE?.sph)} ${formatValue(pr.RE?.cyl)} ${pr.RE?.axis || '0'}°`;
     const leStr = `L: ${formatValue(pr.LE?.sph)} ${formatValue(pr.LE?.cyl)} ${pr.LE?.axis || '0'}°`;
     const pdStr = pr.pd ? ` (PD: ${pr.pd}mm)` : '';
-    return `👓 Manual Power - ${reStr} | ${leStr}${pdStr}`;
+    return pr.name 
+      ? `👓 ${pr.name} - ${reStr} | ${leStr}${pdStr}`
+      : `👓 Manual Power - ${reStr} | ${leStr}${pdStr}`;
   };
 
   useEffect(() => {
@@ -178,6 +184,7 @@ export default function LensSelection() {
     setSelectedPrescriptionId(id);
     const selected = savedPrescriptions.find(p => p._id === id);
     if (selected) {
+      setPrescriptionName(selected.name || '');
       if (selected.uploadedFile || selected.imageUrl) {
         setPowerMode('upload');
         const url = selected.uploadedFile || selected.imageUrl || '';
@@ -382,28 +389,17 @@ export default function LensSelection() {
     }
   };
 
-  const compressAndUploadPrescription = async (file: File): Promise<string> => {
-    if (!user) {
-      if (file.type === 'application/pdf') {
-        return new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (err) => reject(err);
-        });
-      }
-    } else {
-      if (file.type === 'application/pdf') {
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await api.post('/prescriptions', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        return res.data.prescription?.uploadedFile || res.data.prescription?.imageUrl || '';
-      }
+  const compressPrescription = (file: File): Promise<{ blob: Blob | null; dataUrl: string }> => {
+    if (file.type === 'application/pdf') {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve({ blob: null, dataUrl: reader.result as string });
+        reader.onerror = (err) => reject(err);
+      });
     }
 
-    return new Promise<string>((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = (event) => {
@@ -433,33 +429,13 @@ export default function LensSelection() {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
 
-          if (!user) {
-            resolve(canvas.toDataURL('image/jpeg', 0.85));
-            return;
-          }
-
           canvas.toBlob(
-            async (blob) => {
+            (blob) => {
               if (!blob) {
                 reject(new Error('Canvas compression failed'));
                 return;
               }
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
-
-              const formData = new FormData();
-              formData.append('file', compressedFile);
-
-              try {
-                const res = await api.post('/prescriptions', formData, {
-                  headers: { 'Content-Type': 'multipart/form-data' },
-                });
-                resolve(res.data.prescription?.uploadedFile || res.data.prescription?.imageUrl || '');
-              } catch (err) {
-                reject(err);
-              }
+              resolve({ blob, dataUrl: canvas.toDataURL('image/jpeg', 0.85) });
             },
             'image/jpeg',
             0.85
@@ -477,11 +453,20 @@ export default function LensSelection() {
       setPrescriptionFileName(file.name);
       setUploadingPrescription(true);
       try {
-        const url = await compressAndUploadPrescription(file);
-        setUploadedFileUrl(url);
+        const { blob, dataUrl } = await compressPrescription(file);
+        setUploadedFileUrl(dataUrl);
+        if (blob) {
+          const compressedFile = new File([blob], file.name, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          setPrescriptionFileToUpload(compressedFile);
+        } else {
+          setPrescriptionFileToUpload(file);
+        }
       } catch (err) {
-        console.error('Prescription upload failed:', err);
-        alert('Failed to upload prescription. Please try again.');
+        console.error('Prescription compression failed:', err);
+        alert('Failed to process prescription. Please try again.');
       } finally {
         setUploadingPrescription(false);
       }
@@ -513,6 +498,44 @@ export default function LensSelection() {
 
     setSubmitting(true);
     try {
+      let finalUploadedUrl = uploadedFileUrl;
+
+      if (user && !isZeroPower) {
+        if (powerMode === 'upload' && prescriptionFileToUpload) {
+          const formData = new FormData();
+          formData.append('file', prescriptionFileToUpload);
+          if (prescriptionName.trim()) {
+            formData.append('name', prescriptionName.trim());
+          }
+          try {
+            const res = await api.post('/prescriptions', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            finalUploadedUrl = res.data.prescription?.uploadedFile || res.data.prescription?.imageUrl || '';
+            setUploadedFileUrl(finalUploadedUrl);
+          } catch (err) {
+            console.error('Failed to upload prescription to database:', err);
+            alert('Failed to save prescription. Please try again.');
+            setSubmitting(false);
+            return;
+          }
+        } else if (powerMode === 'enter' && !selectedPrescriptionId) {
+          try {
+            const payload: any = {
+              RE: JSON.stringify({ sph: parseFloat(reSph), cyl: parseFloat(reCyl), axis: parseInt(reAxis) }),
+              LE: JSON.stringify({ sph: parseFloat(leSph), cyl: parseFloat(leCyl), axis: parseInt(leAxis) }),
+              pd: parseFloat(pd)
+            };
+            if (prescriptionName.trim()) {
+              payload.name = prescriptionName.trim();
+            }
+            await api.post('/prescriptions', payload);
+          } catch (err) {
+            console.error('Failed to save manual prescription to database:', err);
+          }
+        }
+      }
+
       const basePrice = selectedType?.type === 'progressive' 
         ? (selectedSubType?.price || 2499)
         : (selectedQuality?.price || selectedType?.price || 699);
@@ -526,7 +549,7 @@ export default function LensSelection() {
                         pd: parseFloat(pd),
                         addPower: parseFloat(reAdd)
                       }
-                    : { uploadLater: true, uploadedFileUrl };
+                    : { uploadLater: true, uploadedFileUrl: finalUploadedUrl };
 
       const lensPayload = {
         lensType: selectedType?.displayName || selectedType?.name,
@@ -574,7 +597,7 @@ export default function LensSelection() {
         cart.push(newItem);
         localStorage.setItem('guest_cart', JSON.stringify(cart));
         await fetchCartCount();
-        navigate('/checkout');
+        navigate('/cart');
         return;
       }
 
@@ -587,7 +610,7 @@ export default function LensSelection() {
 
       await api.post('/cart', payload);
       await fetchCartCount();
-      navigate('/checkout');
+      navigate('/cart');
     } catch (err) {
       console.error('Failed to add product with lens config:', err);
       alert('Failed to add config to cart. Please try again.');
@@ -728,14 +751,17 @@ export default function LensSelection() {
             return (
               <div key={item.step} className="flex items-center flex-1 last:flex-none">
                 <div className="flex flex-col items-center">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] transition-all ${
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px] relative transition-all ${
                     isCompleted 
                       ? 'bg-[#D4A04D] text-black' 
                       : isActive 
-                      ? 'bg-[#D4A04D] text-black shadow-[0_0_10px_rgba(212,160,77,0.3)]' 
+                      ? 'bg-[#D4A04D] text-black shadow-[0_0_15px_rgba(212,160,77,0.4)]' 
                       : 'border-2 border-[#2A2A2D] text-gray-500 bg-transparent'
                   }`}>
                     {isCompleted ? '✓' : item.step}
+                    {isActive && (
+                      <span className="absolute inset-0 rounded-full border border-[#D4A04D] animate-ping opacity-30 pointer-events-none" />
+                    )}
                   </div>
                   <span className={`text-[8px] sm:text-[9px] font-bold tracking-wider mt-1.5 uppercase ${
                     isActive ? 'text-[#D4A04D]' : isCompleted ? 'text-white' : 'text-gray-600'
@@ -868,43 +894,50 @@ export default function LensSelection() {
                     onClick={() => {
                       setSelectedType(typeOption);
                     }}
-                    className={`relative bg-[#131314]/90 border rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
-                      isSelected ? 'border-[#D4A04D] bg-[#141416]' : 'border-[#2A2A2D]'
+                    className={`relative bg-[#131314]/90 border rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:border-[#D4A04D]/45 flex flex-col sm:flex-row sm:items-center justify-between ${
+                      isSelected ? 'border-[#D4A04D] bg-[#161618] shadow-[0_4px_20px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
                     }`}
                   >
-                    {isSelected && (
-                      <div className="absolute top-2.5 right-2.5 z-10 w-4 h-4 rounded-full bg-[#D4A04D] flex items-center justify-center shadow-md">
-                        <span className="text-black text-[9px] font-extrabold">✓</span>
+                    {/* Lifestyle Image: Top on mobile, Right on desktop */}
+                    <div className="w-full sm:w-24 md:w-32 h-28 sm:h-20 md:h-24 overflow-hidden relative order-first sm:order-last border-b sm:border-b-0 sm:border-l border-[#2A2A2D]/60 flex-shrink-0">
+                      <img 
+                        src={getLifestyleImage(typeOption.type)} 
+                        alt={typeOption.displayName} 
+                        className="w-full h-full object-cover"
+                      />
+                      {/* Semi-transparent overlay on mobile for sleek look */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#131314] via-transparent to-transparent sm:hidden opacity-80" />
+                    </div>
+
+                    {/* Content: Below image on mobile, Left/Center on desktop */}
+                    <div className="flex items-center gap-4 flex-1 p-4 md:p-5">
+                      <div className="flex-shrink-0 bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl p-2 flex items-center justify-center">
+                        {renderLensDiagram(typeOption.type || '', false)}
                       </div>
-                    )}
-                    
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="flex-shrink-0">
-                        {renderLensDiagram(typeOption.type || '')}
-                      </div>
-                      <div className="flex flex-col flex-1 pr-4">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-white font-bold text-sm leading-none">{typeOption.displayName}</h3>
+                      <div className="flex flex-col flex-1 text-left min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h3 className="text-white font-bold text-sm leading-tight truncate">{typeOption.displayName}</h3>
                           {typeOption.isBestseller && (
                             <span className="bg-[#D4A04D]/15 text-[#D4A04D] border border-[#D4A04D]/25 text-[8px] font-bold px-1.5 py-0.5 rounded tracking-wide uppercase leading-none">
                               Bestseller
                             </span>
                           )}
                         </div>
-                        <p className="text-[#A7A7A7] text-[10px] font-medium leading-normal mt-1.5 max-w-sm">{typeOption.description}</p>
+                        <p className="text-[#A7A7A7] text-[10px] font-medium leading-normal mt-1.5 max-w-sm font-medium">
+                          {typeOption.description}
+                        </p>
                         <span className="text-[#D4A04D] text-[10px] font-extrabold uppercase mt-2.5">
                           Starts from ₹{typeOption.startingPrice || typeOption.price}
                         </span>
                       </div>
                     </div>
 
-                    <div className="w-24 h-16 rounded-lg overflow-hidden bg-[#222] flex-shrink-0 border border-[#2A2A2D]/60 relative">
-                      <img 
-                        src={getLifestyleImage(typeOption.type)} 
-                        alt={typeOption.displayName} 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                    {/* Selection checkmark badge */}
+                    {isSelected && (
+                      <div className="absolute top-3 right-3 z-10 w-5 h-5 rounded-full bg-[#D4A04D] flex items-center justify-center shadow-lg border border-[#0E0E0F]">
+                        <span className="text-black text-[10px] font-extrabold">✓</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -922,16 +955,27 @@ export default function LensSelection() {
             </div>
 
             {/* Sticky Continue Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-[#0E0E0F]/90 border-t border-[#2A2A2D] p-4 z-40 backdrop-blur-md">
-              <div className="max-w-md mx-auto">
-                <button
-                  onClick={handleNext}
-                  disabled={!selectedType}
-                  className="w-full bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2"
-                >
-                  <span>CONTINUE TO QUALITY</span>
-                  <span className="text-xs">→</span>
-                </button>
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-3xl bg-[#131314]/80 border border-[#2A2A2D]/85 p-3.5 z-40 backdrop-blur-xl rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_30px_rgba(212,160,77,0.03)] transition-all duration-300">
+              <div className="flex items-center justify-between gap-4">
+                {/* Left side: Selection summary */}
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Selected Type</span>
+                  <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
+                    {selectedType ? selectedType.displayName : 'None'}
+                  </span>
+                </div>
+                
+                {/* Right side: Button */}
+                <div className="w-full sm:w-auto sm:min-w-[240px]">
+                  <button
+                    onClick={handleNext}
+                    disabled={!selectedType}
+                    className="w-full bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-6 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)] hover:shadow-[0_6px_20px_rgba(212,160,77,0.3)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[0_2px_10px_rgba(212,160,77,0.2)]"
+                  >
+                    <span>CONTINUE TO QUALITY</span>
+                    <span className="text-xs">→</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1000,33 +1044,38 @@ export default function LensSelection() {
                           price: lens.basePrice,
                           features: features
                         } as any)}
-                        className={`relative bg-[#131314] border rounded-xl p-5 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
-                          isSelected ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
+                        className={`relative bg-[#131314] border rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-[#D4A04D]/45 flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${
+                          isSelected ? 'border-[#D4A04D] bg-[#161618] shadow-[0_4px_20px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-4 text-left">
-                          <div className="flex-1 space-y-2">
-                            <h3 className="text-white font-bold text-sm leading-none pt-0.5">{lens.name}</h3>
-                            <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">{desc}</p>
-                            
-                            {/* Feature icons with names */}
-                            <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
-                              {features.map((feat, idx) => (
-                                <div key={idx} className="flex items-center gap-1.5 text-gray-500 text-[9px] font-bold uppercase tracking-wider">
-                                  {renderQualityFeatureIcon(feat)}
-                                  <span>{feat}</span>
-                                </div>
-                              ))}
-                            </div>
+                        <div className="flex-1 space-y-2 text-left">
+                          <h3 className="text-white font-bold text-sm leading-tight">{lens.name}</h3>
+                          <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">{desc}</p>
+                          
+                          {/* Feature icons with names */}
+                          <div className="flex flex-wrap gap-x-4 gap-y-2.5 pt-2">
+                            {features.map((feat, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 text-gray-500 text-[9px] font-bold uppercase tracking-wider bg-[#1A1A1C] border border-[#2A2A2D]/40 rounded-lg px-2 py-1">
+                                {renderQualityFeatureIcon(feat)}
+                                <span>{feat}</span>
+                              </div>
+                            ))}
                           </div>
+                        </div>
 
-                          <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 self-stretch sm:justify-start gap-4">
-                            <span className="text-white font-black text-sm">₹{lens.basePrice} / pair</span>
-                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                              isSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
-                            }`}>
-                              {isSelected && <span className="text-black text-[10px] font-black">✓</span>}
-                            </div>
+                        {/* Divider line for mobile */}
+                        <div className="w-full border-t border-[#2A2A2D]/50 sm:hidden my-1" />
+
+                        {/* Price and select circle */}
+                        <div className="flex items-center sm:flex-col sm:items-end sm:justify-start justify-between shrink-0 gap-3">
+                          <div className="flex flex-col sm:items-end text-left sm:text-right">
+                            <span className="text-white font-black text-sm">₹{lens.basePrice}</span>
+                            <span className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">/ pair</span>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                            isSelected ? 'border-[#D4A04D] bg-[#D4A04D] shadow-[0_0_10px_rgba(212,160,77,0.3)]' : 'border-[#2D2D30]'
+                          }`}>
+                            {isSelected && <span className="text-black text-[10px] font-black">✓</span>}
                           </div>
                         </div>
                       </div>
@@ -1044,35 +1093,39 @@ export default function LensSelection() {
                       <div
                         key={subOption._id}
                         onClick={() => setSelectedSubType(subOption)}
-                        className={`relative bg-[#131314] border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
-                          isSubSelected ? 'border-[#D4A04D] bg-[#141416]' : 'border-[#2A2A2D]'
+                        className={`relative bg-[#131314] border rounded-2xl p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4 cursor-pointer transition-all duration-300 hover:border-[#D4A04D]/45 ${
+                          isSubSelected ? 'border-[#D4A04D] bg-[#161618] shadow-[0_4px_20px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
                         }`}
                       >
                         <div className="flex items-start gap-4 flex-1">
-                          <div className="flex-shrink-0 mt-1 sm:mt-0">
-                            {renderLensDiagram(selectedType.type || '')}
+                          <div className="flex-shrink-0 bg-[#1A1A1C] border border-[#2A2A2D] rounded-xl p-2 flex items-center justify-center">
+                            {renderLensDiagram(selectedType.type || '', false)}
                           </div>
                           <div className="flex-1 space-y-2 text-left">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-white font-bold text-sm leading-none">{subOption.displayName}</h3>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <h3 className="text-white font-bold text-sm leading-tight">{subOption.displayName}</h3>
                               {subOption.isBestseller && (
-                                <span className="bg-[#D4A04D] text-black text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wide uppercase leading-none">
+                                <span className="bg-[#D4A04D]/15 text-[#D4A04D] border border-[#D4A04D]/25 text-[8px] font-bold px-1.5 py-0.5 rounded tracking-wide uppercase leading-none">
                                   Bestseller
                                 </span>
                               )}
                             </div>
-                            <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">
+                            <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md font-medium">
                               {subOption.description}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center sm:flex-col sm:items-end justify-between w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[#2A2A2D]/40">
+
+                        {/* Divider line for mobile */}
+                        <div className="w-full border-t border-[#2A2A2D]/50 sm:hidden my-1" />
+
+                        <div className="flex items-center sm:flex-col sm:items-end sm:justify-start justify-between shrink-0 gap-3">
                           <div className="flex flex-col sm:items-end text-left sm:text-right">
                             <span className="text-white font-black text-sm">₹{subOption.price}</span>
-                            <span className="text-gray-500 text-[9px] font-semibold mt-0.5">/ pair</span>
+                            <span className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">/ pair</span>
                           </div>
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center mt-3 sm:mt-4 ${
-                            isSubSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                            isSubSelected ? 'border-[#D4A04D] bg-[#D4A04D] shadow-[0_0_10px_rgba(212,160,77,0.3)]' : 'border-[#2D2D30]'
                           }`}>
                             {isSubSelected && <span className="text-black text-[10px] font-black">✓</span>}
                           </div>
@@ -1091,42 +1144,47 @@ export default function LensSelection() {
                     <div
                       key={quality._id}
                       onClick={() => setSelectedQuality(quality)}
-                      className={`relative bg-[#131314] border rounded-xl p-5 cursor-pointer transition-all hover:border-[#D4A04D]/45 ${
-                        isSelected ? 'border-[#D4A04D] shadow-[0_0_15px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
+                      className={`relative bg-[#131314] border rounded-2xl p-5 cursor-pointer transition-all duration-300 hover:border-[#D4A04D]/45 flex flex-col sm:flex-row sm:items-start justify-between gap-4 ${
+                        isSelected ? 'border-[#D4A04D] bg-[#161618] shadow-[0_4px_20px_rgba(212,160,77,0.06)]' : 'border-[#2A2A2D]'
                       }`}
                     >
                       {/* Recommended badge */}
                       {quality.isRecommended && (
                         <div className="absolute -top-2.5 left-4">
-                          <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
+                          <span className="bg-[#D4A04D] text-black text-[8px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider shadow">
                             Recommended
                           </span>
                         </div>
                       )}
 
-                      <div className="flex items-start justify-between gap-4 text-left">
-                        <div className="flex-1 space-y-2">
-                          <h3 className="text-white font-bold text-sm leading-none pt-0.5">{quality.displayName}</h3>
-                          <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">{quality.description}</p>
-                          
-                          {/* Feature icons with names */}
-                          <div className="flex flex-wrap gap-x-4 gap-y-2 pt-2">
-                            {quality.features?.map((feat, idx) => (
-                              <div key={idx} className="flex items-center gap-1.5 text-gray-500 text-[9px] font-bold uppercase tracking-wider">
-                                {renderQualityFeatureIcon(feat)}
-                                <span>{feat}</span>
-                              </div>
-                            ))}
-                          </div>
+                      <div className="flex-1 space-y-2 text-left">
+                        <h3 className="text-white font-bold text-sm leading-tight">{quality.displayName}</h3>
+                        <p className="text-[#A7A7A7] text-[10px] leading-relaxed max-w-md">{quality.description}</p>
+                        
+                        {/* Feature icons with names */}
+                        <div className="flex flex-wrap gap-x-4 gap-y-2.5 pt-2">
+                          {quality.features?.map((feat, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5 text-gray-500 text-[9px] font-bold uppercase tracking-wider bg-[#1A1A1C] border border-[#2A2A2D]/40 rounded-lg px-2 py-1">
+                              {renderQualityFeatureIcon(feat)}
+                              <span>{feat}</span>
+                            </div>
+                          ))}
                         </div>
+                      </div>
 
-                        <div className="flex items-center sm:flex-col sm:items-end justify-between shrink-0 self-stretch sm:justify-start gap-4">
-                          <span className="text-white font-black text-sm">₹{quality.price} / pair</span>
-                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                            isSelected ? 'border-[#D4A04D] bg-[#D4A04D]' : 'border-[#2D2D30]'
-                          }`}>
-                            {isSelected && <span className="text-black text-[10px] font-black">✓</span>}
-                          </div>
+                      {/* Divider line for mobile */}
+                      <div className="w-full border-t border-[#2A2A2D]/50 sm:hidden my-1" />
+
+                      {/* Price and select circle */}
+                      <div className="flex items-center sm:flex-col sm:items-end sm:justify-start justify-between shrink-0 gap-3">
+                        <div className="flex flex-col sm:items-end text-left sm:text-right">
+                          <span className="text-white font-black text-sm">₹{quality.price}</span>
+                          <span className="text-gray-500 text-[9px] font-bold uppercase tracking-wider">/ pair</span>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                          isSelected ? 'border-[#D4A04D] bg-[#D4A04D] shadow-[0_0_10px_rgba(212,160,77,0.3)]' : 'border-[#2D2D30]'
+                        }`}>
+                          {isSelected && <span className="text-black text-[10px] font-black">✓</span>}
                         </div>
                       </div>
                     </div>
@@ -1144,22 +1202,33 @@ export default function LensSelection() {
             </div>
 
             {/* Sticky Navigation Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-[#0E0E0F]/90 border-t border-[#2A2A2D] p-4 z-40 backdrop-blur-md">
-              <div className="max-w-md mx-auto flex gap-3">
-                <button
-                  onClick={handleBack}
-                  className="flex-1 bg-[#131314] border border-[#2A2A2D] hover:border-white text-white font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleNext}
-                  disabled={selectedType.type === 'progressive' && !selectedSubType}
-                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <span>CONTINUE TO POWER</span>
-                  <span className="text-xs">→</span>
-                </button>
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-3xl bg-[#131314]/80 border border-[#2A2A2D]/85 p-3.5 z-40 backdrop-blur-xl rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_30px_rgba(212,160,77,0.03)] transition-all duration-300">
+              <div className="flex items-center justify-between gap-4">
+                {/* Selection Summary (Desktop only) */}
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Step 2 of 3</span>
+                  <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
+                    {selectedQuality ? selectedQuality.displayName : (selectedSubType ? selectedSubType.displayName : 'Quality Selection')}
+                  </span>
+                </div>
+                
+                {/* Navigation Buttons */}
+                <div className="flex items-center gap-3 w-full sm:w-auto sm:min-w-[320px]">
+                  <button
+                    onClick={handleBack}
+                    className="flex-1 bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white font-extrabold uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 cursor-pointer text-center select-none"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    disabled={selectedType.type === 'progressive' && !selectedSubType}
+                    className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
+                  >
+                    <span>CONTINUE TO POWER</span>
+                    <span className="text-xs">→</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1201,23 +1270,27 @@ export default function LensSelection() {
                   </div>
                 )}
 
-                {/* Tabs */}
-                <div className="flex border-b border-[#2A2A2D]/85">
+                {/* Segmented Control Tabs */}
+                <div className="flex bg-[#0B0B0C] border border-[#2A2A2D]/80 rounded-xl p-1">
                   <button
                     onClick={() => setPowerMode('enter')}
-                    className={`flex-1 pb-3 text-[10px] font-extrabold uppercase tracking-wider transition-colors border-b-2 text-center bg-transparent border-none cursor-pointer ${
-                      powerMode === 'enter' ? 'border-[#D4A04D] text-[#D4A04D]' : 'border-transparent text-gray-500 hover:text-white'
+                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
+                      powerMode === 'enter' 
+                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
+                        : 'text-gray-500 hover:text-white bg-transparent'
                     }`}
                   >
-                    ENTER MANUALLY
+                    Enter Manually
                   </button>
                   <button
                     onClick={() => setPowerMode('upload')}
-                    className={`flex-1 pb-3 text-[10px] font-extrabold uppercase tracking-wider transition-colors border-b-2 text-center bg-transparent border-none cursor-pointer ${
-                      powerMode === 'upload' ? 'border-[#D4A04D] text-[#D4A04D]' : 'border-transparent text-gray-500 hover:text-white'
+                    className={`flex-1 py-2.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all text-center border-none cursor-pointer ${
+                      powerMode === 'upload' 
+                        ? 'bg-[#D4A04D] text-black shadow-md font-extrabold' 
+                        : 'text-gray-500 hover:text-white bg-transparent'
                     }`}
                   >
-                    UPLOAD PRESCRIPTION
+                    Upload Prescription
                   </button>
                 </div>
 
@@ -1248,21 +1321,21 @@ export default function LensSelection() {
                       <div className="grid grid-cols-4 gap-2.5 items-center text-center">
                         <div className="text-white text-xs font-black text-left">R (Right)</div>
                         <div>
-                          <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                          <select value={reSph} onChange={e => setReSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                             {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
                               <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                          <select value={reCyl} onChange={e => setReCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                             {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
                               <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                          <select value={reAxis} onChange={e => setReAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                             {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
                               <option key={v} value={v}>{v}</option>
                             ))}
@@ -1274,21 +1347,21 @@ export default function LensSelection() {
                       <div className="grid grid-cols-4 gap-2.5 items-center text-center">
                         <div className="text-white text-xs font-black text-left">L (Left)</div>
                         <div>
-                          <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                          <select value={leSph} onChange={e => setLeSph(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                             {Array.from({ length: 81 }, (_, i) => (-10 + i * 0.25).toFixed(2)).map(v => (
                               <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                          <select value={leCyl} onChange={e => setLeCyl(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                             {Array.from({ length: 49 }, (_, i) => (-6 + i * 0.25).toFixed(2)).map(v => (
                               <option key={v} value={v}>{parseFloat(v) > 0 ? `+${v}` : v}</option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-2 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer">
+                          <select value={leAxis} onChange={e => setLeAxis(e.target.value)} className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-2 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D] cursor-pointer transition-all">
                             {Array.from({ length: 181 }, (_, i) => i.toString()).map(v => (
                               <option key={v} value={v}>{v}</option>
                             ))}
@@ -1318,10 +1391,13 @@ export default function LensSelection() {
                     )}
 
                     {/* PD */}
-                    <div className="pt-4 border-t border-[#2A2A2D]/55 flex items-center justify-between gap-4 mt-6">
-                      <div className="flex items-center gap-3">
-                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide">PD (Pupillary Distance) <span className="text-gray-600 font-bold ml-0.5 cursor-help" title="PD represents distance between pupils">(i)</span></label>
-                        <div className="flex items-center gap-1.5 bg-[#0B0B0C] border border-[#2A2A2D] rounded px-2.5 py-1.5">
+                    <div className="pt-4 border-t border-[#2A2A2D]/55 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
+                      <div className="flex items-center justify-between sm:justify-start gap-4 w-full sm:w-auto">
+                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide">
+                          PD (Pupillary Distance){' '}
+                          <span className="text-gray-600 font-bold ml-0.5 cursor-help" title="PD represents distance between pupils">(i)</span>
+                        </label>
+                        <div className="flex items-center gap-1.5 bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2">
                           <input 
                             type="text" 
                             value={pd} 
@@ -1334,7 +1410,7 @@ export default function LensSelection() {
                       
                       <button 
                         onClick={() => setIsPdModalOpen(true)}
-                        className="border border-[#D4A04D]/35 hover:bg-[#D4A04D]/10 text-[#D4A04D] font-bold text-[10px] uppercase tracking-wider rounded-lg px-3.5 py-1.5 transition-colors cursor-pointer bg-transparent flex items-center gap-1.5"
+                        className="border border-[#D4A04D]/35 hover:bg-[#D4A04D]/10 text-[#D4A04D] font-bold text-[10px] uppercase tracking-wider rounded-xl px-3.5 py-2 transition-all cursor-pointer bg-transparent flex items-center justify-center gap-1.5 w-full sm:w-auto"
                       >
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <circle cx="12" cy="12" r="8" />
@@ -1343,6 +1419,21 @@ export default function LensSelection() {
                         Measure PD
                       </button>
                     </div>
+
+                    {user && (
+                      <div className="pt-4 border-t border-[#2A2A2D]/55 mt-6">
+                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block mb-2">
+                          Save this Power as (Optional)
+                        </label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. My Daily Power, Dad's Reading Glasses" 
+                          value={prescriptionName}
+                          onChange={e => setPrescriptionName(e.target.value)}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1378,33 +1469,59 @@ export default function LensSelection() {
                         )}
                       </div>
                     )}
+                    
+                    {user && uploadedFileUrl && (
+                      <div className="text-left mt-4 pt-4 border-t border-[#2A2A2D]/55 space-y-2">
+                        <label className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wide block">
+                          Save this Prescription as (Optional)
+                        </label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. Eye Clinic Report, Dad's Prescription" 
+                          value={prescriptionName}
+                          onChange={e => setPrescriptionName(e.target.value)}
+                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2.5 text-white text-xs focus:outline-none focus:border-[#D4A04D]"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
               </div>
             ) : (
               <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-5 text-center text-gray-500 text-xs">
-                Cosmetic Zero Power (Plano) lenses do not require prescription values. Press continue to checkout.
+                Cosmetic Zero Power (Plano) lenses do not require prescription values. Press continue to cart.
               </div>
             )}
 
             {/* Sticky Navigation Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-[#0E0E0F]/90 border-t border-[#2A2A2D] p-4 z-40 backdrop-blur-md">
-              <div className="max-w-md mx-auto flex gap-3">
-                <button
-                  onClick={handleBack}
-                  className="flex-1 bg-[#131314] border border-[#2A2A2D] hover:border-white text-white font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handleConfirmAndAdd}
-                  disabled={submitting}
-                  className="flex-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold uppercase py-3.5 rounded-xl text-xs tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <span>{submitting ? 'PROCESSING...' : 'CONTINUE TO CHECKOUT'}</span>
-                  {!submitting && <span className="text-xs">→</span>}
-                </button>
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-3xl bg-[#131314]/80 border border-[#2A2A2D]/85 p-3.5 z-40 backdrop-blur-xl rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_30px_rgba(212,160,77,0.03)] transition-all duration-300">
+              <div className="flex items-center justify-between gap-4">
+                {/* Selection Summary (Desktop only) */}
+                <div className="hidden sm:flex flex-col text-left">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider font-mono">Final Step</span>
+                  <span className="text-white text-xs font-extrabold truncate max-w-[200px]">
+                    {isZeroPower ? 'Plano (Zero Power)' : (powerMode === 'enter' ? 'Manual Power' : 'Prescription Upload')}
+                  </span>
+                </div>
+                
+                {/* Navigation Buttons */}
+                <div className="flex items-center gap-3 w-full sm:w-auto sm:min-w-[320px]">
+                  <button
+                    onClick={handleBack}
+                    className="flex-1 bg-[#1A1A1C] border border-[#2A2A2D] hover:border-gray-500 text-white font-extrabold uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 cursor-pointer text-center select-none"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleConfirmAndAdd}
+                    disabled={submitting}
+                    className="flex-1 bg-gradient-to-r from-[#E5B869] to-[#C8923E] hover:from-[#F0C980] hover:to-[#D4A04D] text-black font-black uppercase py-3.5 px-5 rounded-xl text-xs tracking-wider transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed select-none cursor-pointer flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(212,160,77,0.2)]"
+                  >
+                    <span>{submitting ? 'PROCESSING...' : 'CONTINUE TO CART'}</span>
+                    {!submitting && <span className="text-xs">→</span>}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

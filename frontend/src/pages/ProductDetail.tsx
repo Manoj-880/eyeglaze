@@ -679,15 +679,7 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Warranty Info */}
-          {product.warranty && (
-            <div className="bg-[#131314] border border-[#2A2A2D] rounded-xl p-3 flex items-center gap-2">
-              <svg className="w-5 h-5 text-[#D4A04D]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <span className="text-gray-300 text-[10px] font-bold">{product.warranty}</span>
-            </div>
-          )}
+
 
 
           {/* Color Selector */}
@@ -832,6 +824,36 @@ export default function ProductDetailPage() {
               </div>
             </div>
           )}
+
+          {/* Trust & Delivery Info Strip */}
+          <div className="grid grid-cols-3 gap-2 bg-[#131314] border border-[#2A2A2D] rounded-xl p-3.5 text-center mt-6 select-none">
+            {/* 1. Warranty */}
+            <div className="flex flex-col items-center justify-center p-1">
+              <span className="text-lg mb-1">🛡️</span>
+              <span className="text-white font-extrabold text-[10px] uppercase tracking-wider">
+                {product.warranty || '1 Year Warranty'}
+              </span>
+              <span className="text-gray-500 text-[8px] mt-0.5 font-bold uppercase tracking-wider">Warranty Covered</span>
+            </div>
+            
+            {/* 2. Returns */}
+            <div className="flex flex-col items-center justify-center p-1 border-x border-[#2A2A2D]">
+              <span className="text-lg mb-1">🔄</span>
+              <span className="text-white font-extrabold text-[10px] uppercase tracking-wider">
+                {product.category === 'contact_lenses' ? 'Non-Returnable' : '14-Day Returnable'}
+              </span>
+              <span className="text-gray-500 text-[8px] mt-0.5 font-bold uppercase tracking-wider">
+                {product.category === 'contact_lenses' ? 'Final Sale' : 'Easy Returns'}
+              </span>
+            </div>
+            
+            {/* 3. Delivery */}
+            <div className="flex flex-col items-center justify-center p-1">
+              <span className="text-lg mb-1">🚚</span>
+              <span className="text-white font-extrabold text-[10px] uppercase tracking-wider">5-7 Days Delivery</span>
+              <span className="text-gray-500 text-[8px] mt-0.5 font-bold uppercase tracking-wider">Fast Shipping</span>
+            </div>
+          </div>
 
           {/* Call to Actions */}
           <div className="flex flex-col sm:flex-row items-center gap-3 pt-6 border-t border-[#2A2A2D] mt-6">

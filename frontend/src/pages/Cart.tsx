@@ -38,8 +38,6 @@ const mockItems: CartItem[] = [
 export default function CartPage() {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [coupon, setCoupon] = useState('');
-  const [couponApplied, setCouponApplied] = useState(false);
   const { user, fetchCartCount } = useAuth();
   const navigate = useNavigate();
 
@@ -86,8 +84,7 @@ export default function CartPage() {
 
   const subtotal = items.reduce((s, i) => s + (i.framePrice + i.lensPrice + i.fittingCharge) * i.qty, 0);
   const delivery = 99;
-  const discount = couponApplied ? 100 : 0;
-  const total = subtotal + delivery - discount;
+  const total = subtotal + delivery;
 
   const updateQty = async (item: CartItem, qty: number) => {
     setItems(prev => prev.map(i => i.id === item.id ? { ...i, qty } : i));
@@ -132,15 +129,7 @@ export default function CartPage() {
     }
   };
 
-  const applyCoupon = async () => {
-    if (!coupon) return;
-    try {
-      await api.post('/cart/apply-coupon', { code: coupon });
-      setCouponApplied(true);
-    } catch {
-      setCouponApplied(true);
-    }
-  };
+
 
   const handleCheckout = () => {
     if (!user) {
@@ -233,35 +222,9 @@ export default function CartPage() {
                 <span className="text-[#A7A7A7]">Delivery Charge</span>
                 <span className="text-white">₹{delivery}</span>
               </div>
-              {couponApplied && (
-                <div className="flex justify-between text-green-400">
-                  <span>Coupon Discount</span>
-                  <span>-₹{discount}</span>
-                </div>
-              )}
               <div className="border-t border-[#2A2A2D] pt-3 flex justify-between font-bold">
                 <span className="text-white">Total</span>
                 <span className="text-[#D4A04D] text-lg">₹{total}</span>
-              </div>
-            </div>
-
-            {/* Coupon */}
-            <div className="mb-4">
-              <div className="text-white text-sm font-semibold mb-2">Apply Coupon</div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={coupon}
-                  onChange={e => setCoupon(e.target.value.toUpperCase())}
-                  placeholder="Enter code"
-                  className="flex-1 bg-[#0B0B0C] border border-[#2A2A2D] rounded-lg px-3 py-2 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
-                />
-                <button
-                  onClick={applyCoupon}
-                  className="bg-[#D4A04D] text-black font-bold px-4 py-2 rounded-lg text-sm hover:opacity-90"
-                >
-                  Apply
-                </button>
               </div>
             </div>
 

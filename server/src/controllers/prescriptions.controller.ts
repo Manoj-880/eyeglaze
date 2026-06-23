@@ -19,6 +19,7 @@ export async function savePrescription(req: Request, res: Response) {
 
     const file = req.file;
     const body = req.body || {};
+    const name = body.name || undefined;
     const RE = body.RE ? JSON.parse(body.RE) : undefined;
     const LE = body.LE ? JSON.parse(body.LE) : undefined;
     const pd = body.pd ? parseFloat(body.pd) : undefined;
@@ -69,6 +70,7 @@ export async function savePrescription(req: Request, res: Response) {
 
     const prescription = new Prescription({
       user: req.user!.userId,
+      name,
       RE,
       LE,
       pd,

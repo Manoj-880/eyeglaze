@@ -25,6 +25,7 @@ pipeline {
  
                     sh '''
 ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
+set -e
  
 cd /root/eyeglaze
  

@@ -91,7 +91,7 @@ export default function AccountPage() {
       }
 
       const options = {
-        key: 'rzp_test_STX1H1R9XvVjSZ', // Razorpay TEST Key ID
+        key: import.meta.env.VITE_RAZORPAY_KEY || 'rzp_test_STX1H1R9XvVjSZ', // Razorpay TEST Key ID
         amount: 12900, // ₹129 in paise (129 * 100)
         currency: 'INR',
         name: 'EyeGlaze',
