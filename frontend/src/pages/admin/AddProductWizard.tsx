@@ -517,6 +517,18 @@ export default function AddProductWizard() {
     prevCategoryRef.current = selectedCategory || '';
   }, [selectedCategory, loadingMeta, setValue]);
 
+  // For power-sunglasses (Special Power), force sellWithLens to false and sellAsFrame to true
+  useEffect(() => {
+    if (isPowerSunglasses) {
+      if (formValues.sellWithLens !== false) {
+        setValue('sellWithLens', false);
+      }
+      if (formValues.sellAsFrame !== true) {
+        setValue('sellAsFrame', true);
+      }
+    }
+  }, [isPowerSunglasses, formValues.sellWithLens, formValues.sellAsFrame, setValue]);
+
   // Sync active lens type tab when selected types change
   const watchedLensTypes = formValues.lensTypes || [];
   useEffect(() => {
@@ -1710,26 +1722,28 @@ export default function AddProductWizard() {
                   >
                     {watch('sellAsFrame') ? '✓ Sell as Frame (Add to Cart)' : 'Frame Only (Disabled)'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentVal = !!watch('sellWithLens');
-                      const otherVal = !!watch('sellAsFrame');
-                      // Ensure at least one is checked
-                      if (currentVal && !otherVal) {
-                        showToast('At least one selling option must be selected', 'error');
-                        return;
-                      }
-                      setValue('sellWithLens', !currentVal);
-                    }}
-                    className={`flex-1 py-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      watch('sellWithLens')
-                        ? 'bg-[#D4A04D]/15 border-[#D4A04D] text-[#D4A04D]'
-                        : 'bg-[#0B0B0C] border-zinc-800 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {watch('sellWithLens') ? '✓ Sell with Lens (Buy with Lens)' : 'With Lens (Disabled)'}
-                  </button>
+                  {!isPowerSunglasses && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentVal = !!watch('sellWithLens');
+                        const otherVal = !!watch('sellAsFrame');
+                        // Ensure at least one is checked
+                        if (currentVal && !otherVal) {
+                          showToast('At least one selling option must be selected', 'error');
+                          return;
+                        }
+                        setValue('sellWithLens', !currentVal);
+                      }}
+                      className={`flex-1 py-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        watch('sellWithLens')
+                          ? 'bg-[#D4A04D]/15 border-[#D4A04D] text-[#D4A04D]'
+                          : 'bg-[#0B0B0C] border-zinc-800 text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {watch('sellWithLens') ? '✓ Sell with Lens (Buy with Lens)' : 'With Lens (Disabled)'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1771,12 +1785,12 @@ export default function AddProductWizard() {
                   {/* Colors Selector */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-[#2A2A2D]/40">
                     <div>
-                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Primary Color</label>
+                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Colors (comma-separated)</label>
                       <input
                         type="text"
                         {...register('primaryColor')}
-                        placeholder="e.g. Matte Black"
-                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                        placeholder="e.g. Black, Brown, Gold"
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
                       />
                     </div>
                     <div>
@@ -2152,12 +2166,12 @@ export default function AddProductWizard() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Primary Color */}
                 <div>
-                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Primary Color</label>
+                  <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Colors (comma-separated)</label>
                   <input
                     type="text"
                     {...register('primaryColor')}
-                    placeholder="e.g. Matte Black"
-                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none"
+                    placeholder="e.g. Black, Brown, Gold"
+                    className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
                   />
                 </div>
 

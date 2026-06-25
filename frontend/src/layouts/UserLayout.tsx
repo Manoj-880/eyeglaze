@@ -107,7 +107,7 @@ export default function UserLayout() {
     return {
       label: firstProd.name,
       price: `₹${prodPrice}`,
-      to: `/products/${firstProd._id}`
+      to: url
     };
   };
 
@@ -568,6 +568,8 @@ export default function UserLayout() {
     '/account'
   ].some(path => location.pathname.startsWith(path));
 
+  const isHomePage = location.pathname === '/';
+
   return (
     <div className="min-h-screen bg-[#0B0B0C] w-full overflow-x-clip">
       {!isCustomerPage && (
@@ -913,7 +915,13 @@ export default function UserLayout() {
         </div>
       )}
 
-      <main className={isCustomerPage ? "w-full min-h-screen" : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8 mt-16 xl:mt-28"}>
+      <main className={
+        isCustomerPage 
+          ? "w-full min-h-screen" 
+          : isHomePage 
+            ? "w-full mt-16" 
+            : "w-full px-4 sm:px-6 md:px-12 lg:px-16 py-8 mt-16 xl:mt-28"
+      }>
         <Outlet />
       </main>
 

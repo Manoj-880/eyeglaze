@@ -115,7 +115,7 @@ export default function AdminProductsPage() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search products by name or SKU..."
+          placeholder="Search products by name..."
           className="w-full max-w-sm bg-[#131314] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none transition-colors"
         />
       </div>
@@ -129,7 +129,6 @@ export default function AdminProductsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] bg-[#1A1A1C]">
-                  <th className="text-left px-5 py-3">SKU</th>
                   <th className="text-left px-5 py-3">Name</th>
                   <th className="text-left px-5 py-3">Category</th>
                   <th className="text-left px-5 py-3">Price</th>
@@ -140,7 +139,6 @@ export default function AdminProductsPage() {
               <tbody className="divide-y divide-[#2A2A2D]/40">
                 {products.map(p => (
                   <tr key={p._id} className="hover:bg-[#1C1C1E] transition-colors">
-                    <td className="px-5 py-4 text-[#D4A04D] font-mono text-xs font-bold">{p.sku}</td>
                     <td className="px-5 py-4">
                       <div className="text-white font-semibold">{p.name}</div>
                       <div className="flex gap-2 mt-1">
@@ -171,7 +169,7 @@ export default function AdminProductsPage() {
                 ))}
                 {products.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center text-[#A7A7A7] py-16 italic">No products found</td>
+                    <td colSpan={5} className="text-center text-[#A7A7A7] py-16 italic">No products found</td>
                   </tr>
                 )}
               </tbody>

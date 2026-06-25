@@ -35,6 +35,8 @@ const CATEGORIES = [
   { value: 'blue_light', label: 'Blue Light Glasses' },
   { value: 'contact_lenses', label: 'Contact Lenses' },
   { value: 'kids', label: 'Kids Eyewear' },
+  { value: 'power-sunglasses', label: 'Special Power' },
+  { value: 'reading-glasses', label: 'Reading Glasses' },
 ];
 
 const SHAPES = ['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster'];
@@ -222,7 +224,7 @@ export default function ProductsPage() {
           <input
             id="search-input"
             type="text"
-            placeholder="Search frames by name, SKU..."
+            placeholder="Search frames by name..."
             value={searchVal}
             onChange={(e) => setSearchVal(e.target.value)}
             className="w-full bg-[#131314] text-white placeholder-gray-500 text-xs font-semibold pl-10 pr-10 py-2.5 rounded-xl border border-[#2A2A2D] focus:border-[#D4A04D] focus:outline-none transition-colors duration-200"

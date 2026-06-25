@@ -7,6 +7,8 @@ const CATEGORIES = [
   { value: 'blue_light', label: 'Blue Light Glasses' },
   { value: 'contact_lenses', label: 'Contact Lenses' },
   { value: 'kids', label: 'Kids Eyewear' },
+  { value: 'power-sunglasses', label: 'Special Power' },
+  { value: 'reading-glasses', label: 'Reading Glasses' },
 ];
 
 const GENDERS = [

@@ -32,8 +32,24 @@ export async function getProducts(req: Request, res: Response) {
     const andConditions: any[] = [];
 
     if (category) {
-      const normalized = category === 'bluelight' ? 'blue_light' : (category === 'contact' || category === 'contact-lenses' || category === 'contact_lenses') ? 'contact_lenses' : category;
-      andConditions.push({ $or: [{ category: normalized }, { categories: normalized }] });
+      let normalizedList = [category];
+      if (category === 'prescription' || category === 'eyeglasses') {
+        normalizedList = ['prescription', 'eyeglasses'];
+      } else if (category === 'bluelight' || category === 'blue_light' || category === 'computer-glasses') {
+        normalizedList = ['blue_light', 'computer-glasses'];
+      } else if (category === 'contact' || category === 'contact-lenses' || category === 'contact_lenses') {
+        normalizedList = ['contact-lenses', 'contact_lenses'];
+      } else if (category === 'power-sunglasses') {
+        normalizedList = ['power-sunglasses'];
+      } else if (category === 'reading-glasses') {
+        normalizedList = ['reading-glasses'];
+      }
+      andConditions.push({
+        $or: [
+          { category: { $in: normalizedList } },
+          { categories: { $in: normalizedList } }
+        ]
+      });
     }
 
     if (subCategory) {
@@ -149,7 +165,11 @@ export async function getProducts(req: Request, res: Response) {
 
     const genders = parseCommaParam(req.query.gender);
     if (genders) {
-      const genderRegexes = genders.map(g => new RegExp(`^${g}$`, 'i'));
+      const queryGenders = [...genders];
+      if (genders.some(g => g.toLowerCase() === 'men' || g.toLowerCase() === 'women')) {
+        queryGenders.push('unisex');
+      }
+      const genderRegexes = queryGenders.map(g => new RegExp(`^${g}$`, 'i'));
       andConditions.push({ gender: { $in: genderRegexes } });
     }
 

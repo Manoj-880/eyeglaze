@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import { socket } from '../lib/socket';
@@ -580,150 +581,181 @@ export default function LandingPage() {
       />
       
       {/* Main Body - Desktop View Layout */}
-      <div className="hidden md:block w-full py-6">
+      <div className="hidden md:block w-full py-6 space-y-12">
         
         {/* Hero Section - Full View */}
-        <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] min-h-[260px] sm:min-h-[420px] md:min-h-[520px] flex items-center w-full">
-          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent z-10" />
-          
-          {/* Hero text */}
-          <div className="relative z-20 px-4 py-6 sm:px-6 md:px-12 max-w-[55%] md:max-w-lg flex flex-col items-start gap-2 sm:gap-4">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="w-5 sm:w-8 h-[2px] bg-[#D4A04D]" />
-              <span className="text-[#D4A04D] text-[8px] sm:text-xs font-bold tracking-widest uppercase">{slides[activeSlide].subtitle}</span>
-            </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
+          <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] min-h-[260px] sm:min-h-[420px] md:min-h-[520px] flex items-center w-full shadow-2xl">
+            <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent z-10" />
             
-            <h1 className="text-sm sm:text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
-              {slides[activeSlide].title}
-            </h1>
-            
-            <p className="text-gray-400 text-[8px] sm:text-sm md:text-base line-clamp-2 sm:line-clamp-none">
-              {slides[activeSlide].description}
-            </p>
-            
-            <button 
-              onClick={() => navigate('/products')} 
-              className="mt-1 sm:mt-2 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-semibold tracking-wider text-[8px] sm:text-xs uppercase py-1.5 px-3 sm:py-3 sm:px-6 rounded-md sm:rounded-lg transition-all duration-300 flex items-center gap-1.5 sm:gap-2 group cursor-pointer"
-            >
-              {slides[activeSlide].buttonText} 
-              <span className="group-hover:translate-x-1 transition-transform">→</span>
-            </button>
+            {/* Hero text */}
+            <div className="relative z-20 px-4 py-6 sm:px-6 md:px-12 max-w-[55%] md:max-w-lg flex flex-col items-start gap-2 sm:gap-4">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeSlide}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -15 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="flex flex-col items-start gap-2 sm:gap-4"
+                >
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="w-5 sm:w-8 h-[2px] bg-[#D4A04D]" />
+                    <span className="text-[#D4A04D] text-[8px] sm:text-xs font-bold tracking-widest uppercase">{slides[activeSlide].subtitle}</span>
+                  </div>
+                  
+                  <h1 className="text-sm sm:text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                    {slides[activeSlide].title}
+                  </h1>
+                  
+                  <p className="text-gray-400 text-[8px] sm:text-sm md:text-base line-clamp-2 sm:line-clamp-none">
+                    {slides[activeSlide].description}
+                  </p>
+                  
+                  <button 
+                    onClick={() => navigate('/products')} 
+                    className="mt-1 sm:mt-2 border border-[#D4A04D] text-[#D4A04D] hover:bg-[#D4A04D] hover:text-black font-semibold tracking-wider text-[8px] sm:text-xs uppercase py-1.5 px-3 sm:py-3 sm:px-6 rounded-md sm:rounded-lg transition-all duration-300 flex items-center gap-1.5 sm:gap-2 group cursor-pointer"
+                  >
+                    {slides[activeSlide].buttonText} 
+                    <span className="group-hover:translate-x-1 transition-transform">→</span>
+                  </button>
+                </motion.div>
+              </AnimatePresence>
 
-            {/* Slide dots */}
-            <div className="flex gap-1.5 mt-2 sm:mt-6">
-              {slides.map((_, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => setActiveSlide(i)} 
-                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === i ? 'bg-[#D4A04D] w-4 sm:w-6' : 'bg-gray-600'}`}
-                  aria-label={`Go to slide ${i + 1}`}
+              {/* Slide dots */}
+              <div className="flex gap-1.5 mt-2 sm:mt-6">
+                {slides.map((_, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => setActiveSlide(i)} 
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === i ? 'bg-[#D4A04D] w-4 sm:w-6' : 'bg-gray-600'}`}
+                    aria-label={`Go to slide ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Banner image */}
+            <div className="absolute right-0 top-0 bottom-0 w-1/2 md:w-3/5 h-full overflow-hidden">
+              <AnimatePresence mode="wait">
+                <motion.img 
+                  key={activeSlide}
+                  src={slides[activeSlide].image} 
+                  alt="Premium Eyewear Model" 
+                  initial={{ opacity: 0, scale: 1.05 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.6, ease: "easeInOut" }}
+                  className="w-full h-full object-cover object-center scale-100" 
                 />
-              ))}
+              </AnimatePresence>
             </div>
-          </div>
-
-          {/* Banner image */}
-          <div className="absolute right-0 top-0 bottom-0 w-1/2 md:w-3/5 h-full">
-            <img 
-              src={slides[activeSlide].image} 
-              alt="Premium Eyewear Model" 
-              className="w-full h-full object-cover object-center transition-all duration-700 ease-in-out scale-100" 
-            />
-          </div>
-        </section>
+          </section>
+        </div>
 
         {/* Feature Badges Strip - Full View */}
         <section className="border-y border-[#2A2A2D] py-4 bg-[#0E0E0E] w-full">
-          <div className="grid grid-cols-4 divide-x divide-[#2A2A2D] text-center w-full">
-            
-            {/* 100% Authentic */}
-            <div className="flex flex-col items-center justify-center px-1">
-              <span className="text-[#D4A04D] mb-1.5">
-                <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </span>
-              <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">100%</span>
-              <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Authentic</span>
-            </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
+            <div className="grid grid-cols-4 divide-x divide-[#2A2A2D] text-center w-full">
+              
+              {/* 100% Authentic */}
+              <div className="flex flex-col items-center justify-center px-1">
+                <span className="text-[#D4A04D] mb-1.5">
+                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </span>
+                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">100%</span>
+                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Authentic</span>
+              </div>
 
-            {/* Premium Quality */}
-            <div className="flex flex-col items-center justify-center px-1">
-              <span className="text-[#D4A04D] mb-1.5">
-                <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </span>
-              <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">Premium</span>
-              <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Quality</span>
-            </div>
+              {/* Premium Quality */}
+              <div className="flex flex-col items-center justify-center px-1">
+                <span className="text-[#D4A04D] mb-1.5">
+                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5a2 2 0 10-2 2h2zm0 0h4m-4 0H8m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </span>
+                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">Premium</span>
+                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Quality</span>
+              </div>
 
-            {/* 7 Days Return */}
-            <div className="flex flex-col items-center justify-center px-1">
-              <span className="text-[#D4A04D] mb-1.5">
-                <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
-                </svg>
-              </span>
-              <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">7 Days</span>
-              <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Return</span>
-            </div>
+              {/* 7 Days Return */}
+              <div className="flex flex-col items-center justify-center px-1">
+                <span className="text-[#D4A04D] mb-1.5">
+                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
+                  </svg>
+                </span>
+                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">7 Days</span>
+                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Return</span>
+              </div>
 
-            {/* Free Shipping */}
-            <div className="flex flex-col items-center justify-center px-1">
-              <span className="text-[#D4A04D] mb-1.5">
-                <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
-                </svg>
-              </span>
-              <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">Free</span>
-              <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Shipping</span>
-            </div>
+              {/* Free Shipping */}
+              <div className="flex flex-col items-center justify-center px-1">
+                <span className="text-[#D4A04D] mb-1.5">
+                  <svg className="w-5 h-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 011-1v-4a1 1 0 011-1h2l4 4v3.5a1.5 1.5 0 01-1.5 1.5h-1m-6 0a2 2 0 004 0h5M3 17h2m4 0h6m4 0h2" />
+                  </svg>
+                </span>
+                <span className="text-white text-[9px] sm:text-xs font-bold leading-tight block">Free</span>
+                <span className="text-[#A7A7A7] text-[7px] sm:text-[10px] uppercase tracking-wider block mt-0.5">Shipping</span>
+              </div>
 
+            </div>
           </div>
         </section>
 
         {/* Shop by Category - Desktop View */}
-        <section className="flex flex-col gap-8 w-full mt-2">
-          <div className="flex flex-col">
-            {/* <h2 className="text-lg font-bold uppercase tracking-wider text-white">Shop by Category</h2> */}
-            {/* <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest mt-0.5">Explore our premium dynamic collections</span> */}
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full">
+          <section className="flex flex-col gap-8 w-full mt-2">
+            <div className="flex flex-col">
+              {/* <h2 className="text-lg font-bold uppercase tracking-wider text-white">Shop by Category</h2> */}
+              {/* <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest mt-0.5">Explore our premium dynamic collections</span> */}
+            </div>
 
-          {categories.map((cat) => {
-            const subOptions = getCategorySubOptions(cat);
-            return (
-              <div key={cat._id || cat.slug} className="flex flex-col gap-4">
-                <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
-                <div className={`grid gap-6 w-full ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
-                  {subOptions.map((item, idx) => (
-                    <Link 
-                      key={idx} 
-                      to={item.to}
-                      onClick={(e) => handleSubOptionClick(e, item, cat)}
-                      className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
-                    >
-                      <img 
-                        src={item.img} 
-                        alt={item.label} 
-                        className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                      />
-                      
-                      <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
-                        <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
-                        <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
-                          <span>Shop Now</span>
-                          <span>→</span>
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </section>
+            {categories.map((cat, catIdx) => {
+              const subOptions = getCategorySubOptions(cat);
+              return (
+                <motion.div 
+                  key={cat._id || cat.slug} 
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  transition={{ duration: 0.5, delay: catIdx * 0.1 }}
+                  className="flex flex-col gap-4"
+                >
+                  <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
+                  <div className={`grid gap-6 w-full ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                    {subOptions.map((item, idx) => (
+                      <Link 
+                        key={idx} 
+                        to={item.to}
+                        onClick={(e) => handleSubOptionClick(e, item, cat)}
+                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
+                      >
+                        <img 
+                          src={item.img} 
+                          alt={item.label} 
+                          className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                        />
+                        
+                        <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
+                          <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
+                          <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
+                            <span>Shop Now</span>
+                            <span>→</span>
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </section>
+        </div>
       </div>
 
 
@@ -870,7 +902,7 @@ export default function LandingPage() {
         </div>
       </div> {/* END MOBILE LAYOUT */}
       {/* ================= SHARED PAGE CONTENT ================= */}
-      <div className="w-full py-6 flex flex-col gap-10 pb-24 md:pb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 lg:px-16 w-full py-6 flex flex-col gap-10 pb-24 md:pb-6">
         {/* Featured Products Section - Full View */}
         <section className="flex flex-col gap-6 w-full py-4 border-t border-[#1C1C1E]">
           <div className="flex items-center justify-between">
@@ -901,7 +933,7 @@ export default function LandingPage() {
               ref={carouselRef}
               className="flex gap-6 overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-none w-full pb-4"
             >
-              {featuredProducts.map((product) => {
+              {featuredProducts.map((product, pIdx) => {
                 const productId = product._id || product.id;
                 const salePrice = product.price?.selling ?? product.salePrice ?? 0;
                 const originalPrice = product.price?.original ?? product.originalPrice ?? 0;
@@ -913,10 +945,15 @@ export default function LandingPage() {
                 const badge = product.isBestseller ? 'BESTSELLER' : (product.badge || 'NEW');
 
                 return (
-                  <div 
+                  <motion.div 
                     key={productId}
                     onClick={() => navigate(`/products/${productId}`)}
-                    className="flex-shrink-0 w-[70vw] sm:w-[235px] md:w-[245px] snap-start bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden hover:border-[#D4A04D]/50 transition-all duration-300 group flex flex-col justify-between cursor-pointer"
+                    initial={{ opacity: 0, y: 35 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-40px" }}
+                    transition={{ duration: 0.5, delay: pIdx * 0.05 }}
+                    whileHover={{ y: -6, borderColor: "rgba(212,160,77,0.6)", boxShadow: "0 12px 24px rgba(0,0,0,0.4)" }}
+                    className="flex-shrink-0 w-[70vw] sm:w-[235px] md:w-[245px] snap-start bg-[#121212] border border-[#2A2A2D] rounded-2xl overflow-hidden group flex flex-col justify-between cursor-pointer"
                   >
                     
                     {/* Image & Badge Container */}
@@ -961,7 +998,7 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
@@ -1031,38 +1068,47 @@ export default function LandingPage() {
             <div className={`absolute inset-0 bg-gradient-to-r ${offerSlides[activeOfferSlide].bgGradient} transition-all duration-700 ease-in-out`} />
             
             {/* Overlay Grid */}
-            <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 h-full min-h-[220px]">
-              <div className="flex flex-col items-start gap-3 max-w-xl">
-                <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold py-1 px-3 rounded-full uppercase tracking-wider">
-                  {offerSlides[activeOfferSlide].badge}
-                </span>
-                <h3 className="text-xl md:text-3xl font-extrabold text-white leading-tight uppercase tracking-wide">
-                  {offerSlides[activeOfferSlide].title}
-                </h3>
-                <span className="text-[#D4A04D] text-[10px] md:text-xs font-bold tracking-widest uppercase">
-                  {offerSlides[activeOfferSlide].subtitle}
-                </span>
-                <p className="text-gray-400 text-xs md:text-sm leading-relaxed max-w-md">
-                  {offerSlides[activeOfferSlide].desc}
-                </p>
-              </div>
-
-              {/* Coupon Card & Action */}
-              <div className="flex flex-col items-start md:items-end gap-3 justify-center">
-                <div className="bg-[#0B0B0C]/80 backdrop-blur-md border border-[#2A2A2D] rounded-xl p-4 flex flex-col gap-2 w-full sm:w-[240px] items-center justify-center text-center shadow-lg">
-                  <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest">COPY COUPON CODE</span>
-                  <div className="border border-dashed border-[#D4A04D]/50 rounded-lg px-4 py-2 bg-[#131314] font-mono text-sm text-[#D4A04D] font-bold tracking-wider w-full select-all">
-                    {offerSlides[activeOfferSlide].code}
-                  </div>
-                  <button
-                    onClick={() => handleCopyCoupon(offerSlides[activeOfferSlide].code)}
-                    className="w-full mt-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-bold text-[10px] uppercase py-2 rounded-lg tracking-wider transition-colors"
-                  >
-                    {copiedCoupon === offerSlides[activeOfferSlide].code ? '✓ COPIED!' : 'COPY CODE'}
-                  </button>
+            <AnimatePresence mode="wait">
+              <motion.div 
+                key={activeOfferSlide}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.35, ease: "easeInOut" }}
+                className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 h-full min-h-[220px]"
+              >
+                <div className="flex flex-col items-start gap-3 max-w-xl">
+                  <span className="bg-[#D4A04D] text-black text-[9px] font-extrabold py-1 px-3 rounded-full uppercase tracking-wider">
+                    {offerSlides[activeOfferSlide].badge}
+                  </span>
+                  <h3 className="text-xl md:text-3xl font-extrabold text-white leading-tight uppercase tracking-wide">
+                    {offerSlides[activeOfferSlide].title}
+                  </h3>
+                  <span className="text-[#D4A04D] text-[10px] md:text-xs font-bold tracking-widest uppercase">
+                    {offerSlides[activeOfferSlide].subtitle}
+                  </span>
+                  <p className="text-gray-400 text-xs md:text-sm leading-relaxed max-w-md">
+                    {offerSlides[activeOfferSlide].desc}
+                  </p>
                 </div>
-              </div>
-            </div>
+
+                {/* Coupon Card & Action */}
+                <div className="flex flex-col items-start md:items-end gap-3 justify-center">
+                  <div className="bg-[#0B0B0C]/80 backdrop-blur-md border border-[#2A2A2D] rounded-xl p-4 flex flex-col gap-2 w-full sm:w-[240px] items-center justify-center text-center shadow-lg">
+                    <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest">COPY COUPON CODE</span>
+                    <div className="border border-dashed border-[#D4A04D]/50 rounded-lg px-4 py-2 bg-[#131314] font-mono text-sm text-[#D4A04D] font-bold tracking-wider w-full select-all">
+                      {offerSlides[activeOfferSlide].code}
+                    </div>
+                    <button
+                      onClick={() => handleCopyCoupon(offerSlides[activeOfferSlide].code)}
+                      className="w-full mt-1 bg-[#D4A04D] hover:bg-[#C8923E] text-black font-bold text-[10px] uppercase py-2 rounded-lg tracking-wider transition-colors cursor-pointer"
+                    >
+                      {copiedCoupon === offerSlides[activeOfferSlide].code ? '✓ COPIED!' : 'COPY CODE'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatePresence>
 
             {/* Left/Right Controls */}
             <button
@@ -1534,13 +1580,27 @@ export default function LandingPage() {
       {/* Interactive overlays & modals */}
 
       {/* 1. AI Assistant Chat Drawer */}
-      {isAiDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Overlay */}
-          <div onClick={() => setIsAiDrawerOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          
-          {/* Drawer Panel */}
-          <div className="relative w-full max-w-md bg-[#0E0E0E] h-full shadow-2xl border-l border-[#2A2A2D] flex flex-col z-10 animate-slide-in">
+      <AnimatePresence>
+        {isAiDrawerOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            {/* Overlay */}
+            <motion.div 
+              onClick={() => setIsAiDrawerOpen(false)} 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-pointer" 
+            />
+            
+            {/* Drawer Panel */}
+            <motion.div 
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="relative w-full max-w-md bg-[#0E0E0E] h-full shadow-2xl border-l border-[#2A2A2D] flex flex-col z-10"
+            >
             {/* Header */}
             <div className="p-4 border-b border-[#2A2A2D] flex items-center justify-between bg-[#151515]">
               <div className="flex items-center gap-3">
@@ -1622,9 +1682,10 @@ export default function LandingPage() {
                 </svg>
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
+    </AnimatePresence>
 
 
 
