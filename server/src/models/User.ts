@@ -33,7 +33,7 @@ export interface IWallet {
 
 export interface ITransaction {
   _id?: mongoose.Types.ObjectId;
-  type: 'Refund' | 'Added' | 'Paid';
+  type: 'Refund' | 'Added' | 'Paid' | 'Order' | 'Cashback';
   amount: number;
   date: Date;
   description: string;
@@ -100,7 +100,7 @@ const WalletSchema = new Schema<IWallet>({
 });
 
 const TransactionSchema = new Schema<ITransaction>({
-  type: { type: String, enum: ['Refund', 'Added', 'Paid'] },
+  type: { type: String, enum: ['Refund', 'Added', 'Paid', 'Order', 'Cashback'] },
   amount: Number,
   date: { type: Date, default: Date.now },
   description: String,

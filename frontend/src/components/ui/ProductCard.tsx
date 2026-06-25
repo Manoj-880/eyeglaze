@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import StarRating from './StarRating';
-import AddToCartButton from '../AddToCartButton';
 
 interface ProductCardProps {
   product: {
@@ -14,7 +13,7 @@ interface ProductCardProps {
     reviewCount?: number;
     isBestseller?: boolean;
     brand?: string;
-    shape?: string;
+    shape?: string | string[];
     frameSize?: string;
     frameColor?: string;
     frameType?: string;
@@ -43,9 +42,9 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
 
   return (
     <div className="block group">
-      <div className={`bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row' : 'flex-col h-full'}`}>
+      <div className={`bg-[#131314] border border-[#2A2A2D] rounded-xl overflow-hidden hover:border-[#D4A04D] transition-colors flex ${isRow ? 'flex-row' : 'flex-col aspect-square w-full'}`}>
         {/* Image wrapper */}
-        <Link to={`/products/${product._id}`} className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'aspect-[4/3] border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
+        <Link to={`/products/${product._id}`} className={`relative ${isRow ? 'w-[40%] border-r border-[#2A2A2D]/40 shrink-0' : 'h-[52%] border-b border-[#2A2A2D]/40'} bg-[#1A1A1C] flex items-center justify-center`}>
           {product.images?.[0] ? (
             <img 
               src={product.images[0]} 
@@ -88,34 +87,55 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
         </Link>
 
         {/* Info */}
-        <div className="p-4 flex-1 flex flex-col justify-between">
-          <div>
-            {/* Brand Header */}
-            <div className="text-[#D4A04D] text-[10px] font-extrabold uppercase tracking-widest mb-1.5">
-              {product.brand || 'EyeGlaze'}
+        <div className={`flex-1 flex flex-col justify-between ${isRow ? 'p-4' : 'p-3'}`}>
+          <div className="space-y-1">
+            {/* Top row: Brand & Price */}
+            <div className="flex justify-between items-start gap-2">
+              {/* Brand Header */}
+              <div className="text-[#D4A04D] text-[9px] font-extrabold uppercase tracking-widest truncate">
+                {product.brand || 'EyeGlaze'}
+              </div>
+              
+              {/* Price Section */}
+              <div className="flex items-baseline gap-1 shrink-0">
+                {product.memberPrice && (
+                  <span className="text-[#D4A04D] font-black text-xs md:text-sm">₹{product.memberPrice} <span className="text-[#A7A7A7] text-[6px]">(Member)</span></span>
+                )}
+                {product.nonMemberPrice && (
+                  <span className="text-white font-black text-xs md:text-sm">₹{product.nonMemberPrice} <span className="text-[#A7A7A7] text-[6px]">(Non-Member)</span></span>
+                )}
+                {!product.memberPrice && !product.nonMemberPrice && (
+                  <>
+                    <span className="text-white font-black text-xs md:text-sm">₹{product.price.selling}</span>
+                    {product.price.original > product.price.selling && (
+                      <span className="text-[#A7A7A7] text-[9px] line-through font-medium">₹{product.price.original}</span>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Product Title */}
             <Link to={`/products/${product._id}`} className="block">
-              <div className="text-[#F2F2F2] font-extrabold text-sm mb-2.5 line-clamp-1 group-hover:text-[#D4A04D] transition-colors">
+              <div className="text-[#F2F2F2] font-extrabold text-xs md:text-sm line-clamp-1 group-hover:text-[#D4A04D] transition-colors mt-0.5">
                 {product.name}
               </div>
             </Link>
 
             {/* Meta Tags (Shape/Type/Size) */}
-            <div className="flex gap-1.5 flex-wrap mb-3.5 text-[9px] font-semibold text-[#A7A7A7]">
+            <div className="flex gap-1 flex-wrap text-[8px] font-semibold text-[#A7A7A7] leading-none pt-0.5">
               {product.shape && (
-                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-2 py-0.5 rounded-full uppercase">
-                  {product.shape}
+                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-1.5 py-0.5 rounded-full uppercase truncate max-w-[65px]">
+                  {Array.isArray(product.shape) ? product.shape[0] : product.shape}
                 </span>
               )}
               {product.frameType && (
-                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-2 py-0.5 rounded-full uppercase">
+                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-1.5 py-0.5 rounded-full uppercase truncate max-w-[65px]">
                   {product.frameType}
                 </span>
               )}
               {product.frameSize && (
-                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-2 py-0.5 rounded-full uppercase">
+                <span className="bg-[#1C1C1E] border border-[#2A2A2D]/60 px-1.5 py-0.5 rounded-full uppercase">
                   {product.frameSize}
                 </span>
               )}
@@ -123,59 +143,29 @@ export default function ProductCard({ product, layout = 'grid' }: ProductCardPro
 
             {/* Colors Swatches */}
             {product.colors && product.colors.length > 0 && (
-              <div className="flex gap-1.5 mb-3.5 items-center">
-                {product.colors.slice(0, 5).map((col, idx) => (
+              <div className="flex gap-1 items-center h-4 pt-0.5">
+                {product.colors.slice(0, 4).map((col, idx) => (
                   <div 
                     key={idx} 
                     title={col.name}
-                    className="w-3 h-3 rounded-full border border-white/20 transition-transform duration-200 hover:scale-125 cursor-pointer shadow-sm shrink-0"
+                    className="w-2.5 h-2.5 rounded-full border border-white/20 transition-transform duration-200 hover:scale-125 cursor-pointer shadow-sm shrink-0"
                     style={{ backgroundColor: col.hex }}
                   />
                 ))}
-                {product.colors.length > 5 && (
-                  <span className="text-[#A7A7A7] text-[9px] font-bold">+{product.colors.length - 5}</span>
+                {product.colors.length > 4 && (
+                  <span className="text-[#A7A7A7] text-[8px] font-bold">+{product.colors.length - 4}</span>
                 )}
               </div>
             )}
           </div>
 
-          <div>
-            {/* Pricing Section */}
-            <div className="flex items-baseline gap-2 mb-2 border-t border-[#2A2A2D]/30 pt-3">
-              {product.memberPrice && (
-                <span className="text-[#D4A04D] font-black text-sm">₹{product.memberPrice} <span className="text-[#A7A7A7] text-[8px]">(Member)</span></span>
-              )}
-              {product.nonMemberPrice && (
-                <span className="text-white font-black text-sm">₹{product.nonMemberPrice} <span className="text-[#A7A7A7] text-[8px]">(Non-Member)</span></span>
-              )}
-              {!product.memberPrice && !product.nonMemberPrice && (
-                <>
-                  <span className="text-white font-black text-base">₹{product.price.selling}</span>
-                  <span className="text-[#A7A7A7] text-xs line-through font-medium">₹{product.price.original}</span>
-                </>
-              )}
-            </div>
-
-            {/* Star Rating */}
+          {/* Bottom row: Star Rating only */}
+          <div className="border-t border-[#2A2A2D]/20 pt-1.5">
             {product.rating !== undefined && (
-              <div className="mb-3">
+              <div className="scale-90 origin-left h-4 flex items-center">
                 <StarRating rating={product.rating} reviewCount={product.reviewCount} />
               </div>
             )}
-
-            {/* Buttons */}
-            <div className="flex flex-col gap-2">
-              <Link to={`/products/${product._id}`} className="w-full bg-[#1C1C1E] border border-[#2A2A2D] text-white text-[9px] font-extrabold uppercase py-2 rounded-lg text-center transition-colors hover:border-[#D4A04D]">
-                View Details
-              </Link>
-              <AddToCartButton productId={product._id} color={product.colors?.[0]?.name} product={product} />
-              <Link to={`/products/${product._id}?buy=frame`} className="w-full bg-[#1C1C1E] border border-[#2A2A2D] text-white text-[9px] font-extrabold uppercase py-2 rounded-lg text-center transition-colors hover:border-[#D4A04D]">
-                Buy Frame Only
-              </Link>
-              <Link to={`/lens?product=${product._id}&color=${product.colors?.[0]?.name || ''}`} className="w-full bg-[#D4A04D] text-black text-[9px] font-extrabold uppercase py-2 rounded-lg text-center transition-colors hover:bg-[#C8923E]">
-                Buy With Lens
-              </Link>
-            </div>
           </div>
         </div>
       </div>

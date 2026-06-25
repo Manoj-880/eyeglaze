@@ -800,7 +800,7 @@ export default function LensSelection() {
               <div className="flex flex-col flex-1 w-full justify-between h-full py-1 gap-3 sm:gap-2 text-left">
                 <div className="space-y-1">
                   <h3 className="text-white text-base sm:text-lg font-bold leading-tight">
-                    {product.sku} | {product.name}
+                    {product.name}
                   </h3>
                   <div className="flex flex-col gap-1.5 text-gray-500 text-xs mt-2.5">
                     <div>
@@ -847,8 +847,7 @@ export default function LensSelection() {
                   )}
                 </div>
                 <div className="flex flex-col gap-1 text-left">
-                  <span className="text-white text-base sm:text-lg font-bold leading-none">{product.sku}</span>
-                  <span className="text-white text-sm font-medium leading-tight mt-0.5">{product.name}</span>
+                  <span className="text-white text-base sm:text-lg font-bold leading-tight">{product.name}</span>
                   <span className="text-gray-500 text-xs font-medium mt-0.5">{color || 'Matte Black'}</span>
                 </div>
               </div>

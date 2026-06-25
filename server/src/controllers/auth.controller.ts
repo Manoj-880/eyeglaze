@@ -280,9 +280,18 @@ export async function logout(req: Request, res: Response) {
 export async function getMe(req: Request, res: Response) {
   try {
     await connectDB();
-    const user = await User.findById(req.user!.userId).select('-otp -otpExpiry');
+    const user = await User.findById(req.user!.userId)
+      .select('-otp -otpExpiry')
+      .populate('wishlist', '_id');
+
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    const existingIds = (user.wishlist || []).map((w: any) => w._id || w);
+    const rawWishlist = user.populated('wishlist') || user.toObject().wishlist || [];
+    if (existingIds.length !== rawWishlist.length) {
+      await User.findByIdAndUpdate(req.user!.userId, { wishlist: existingIds });
     }
 
     return res.status(200).json({
@@ -296,7 +305,7 @@ export async function getMe(req: Request, res: Response) {
         membershipActive: user.membershipActive,
         membershipExpiry: user.membershipExpiry,
         addresses: user.addresses,
-        wishlist: user.wishlist,
+        wishlist: existingIds,
         walletBalance: user.walletBalance ?? 0,
         savedCards: user.savedCards ?? [],
         linkedWallets: user.linkedWallets ?? [],
@@ -330,6 +339,9 @@ export async function updateProfile(req: Request, res: Response) {
     }
 
     await user.save();
+    await user.populate('wishlist', '_id');
+    const existingIds = (user.wishlist || []).map((w: any) => w._id || w);
+
     return res.status(200).json({
       success: true,
       user: {
@@ -341,7 +353,7 @@ export async function updateProfile(req: Request, res: Response) {
         role: user.role,
         membershipActive: user.membershipActive,
         addresses: user.addresses,
-        wishlist: user.wishlist,
+        wishlist: existingIds,
       },
     });
   } catch (error: any) {
@@ -662,6 +674,8 @@ export async function activateMembership(req: Request, res: Response) {
     await coupon.save();
 
     await user.save();
+    await user.populate('wishlist', '_id');
+    const existingIds = (user.wishlist || []).map((w: any) => w._id || w);
 
     return res.status(200).json({
       success: true,
@@ -677,7 +691,7 @@ export async function activateMembership(req: Request, res: Response) {
         membershipActive: user.membershipActive,
         membershipExpiry: user.membershipExpiry,
         addresses: user.addresses,
-        wishlist: user.wishlist,
+        wishlist: existingIds,
         walletBalance: user.walletBalance,
         savedCards: user.savedCards ?? [],
         linkedWallets: user.linkedWallets ?? [],

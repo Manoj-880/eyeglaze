@@ -39,11 +39,9 @@ const CATEGORIES = [
 
 const SHAPES = ['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster'];
 const SIZES = ['Small', 'Medium', 'Large'];
-const BRANDS = ['Vincent Chase', 'John Jacobs', 'Hustlr', 'Lenskart Air'];
 const COLORS = ['Black', 'Brown', 'Gold', 'Silver', 'Transparent', 'Pink'];
 const TYPES = ['Full Rim', 'Half Rim', 'Rimless'];
 const MATERIALS = ['Metal', 'Acetate', 'TR90', 'Titanium'];
-const WEIGHTS = ['Lightweight', 'Medium', 'Heavy'];
 const FACESHAPES = ['Round', 'Oval', 'Square', 'Diamond'];
 
 const mockProducts: Product[] = [
@@ -170,7 +168,7 @@ export default function ProductsPage() {
     navigate(`/products?${params.toString()}`);
   };
 
-  const filterKeys = ['category', 'gender', 'shape', 'frameSize', 'frameColor', 'frameType', 'material', 'weight', 'faceShape', 'maxPrice', 'rating', 'isPremium'];
+  const filterKeys = ['category', 'gender', 'shape', 'frameSize', 'frameColor', 'frameType', 'material', 'faceShape', 'maxPrice', 'isPremium'];
   const activeKeys: string[] = [];
   searchParams.forEach((_, key) => {
     if (!activeKeys.includes(key)) {
@@ -185,13 +183,10 @@ export default function ProductsPage() {
     { id: 'gender', label: 'Gender' },
     { id: 'shape', label: 'Shape & Style' },
     { id: 'size', label: 'Frame Size' },
-    { id: 'brand', label: 'Brand' },
     { id: 'color', label: 'Frame Color' },
     { id: 'type', label: 'Frame Type' },
     { id: 'material', label: 'Material' },
-    { id: 'weight', label: 'Weight' },
     { id: 'faceShape', label: 'Face Shape' },
-    { id: 'rating', label: 'Rating' },
     { id: 'toggles', label: 'Toggles' },
   ];
 
@@ -266,8 +261,8 @@ export default function ProductsPage() {
               viewMode === 'list' 
                 ? "flex flex-col gap-4" 
                 : viewMode === 'grid'
-                  ? "grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2"
-                  : "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                  ? "grid grid-cols-1 sm:grid-cols-3 gap-3"
+                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6"
             }>
               {products.map(p => (
                 <ProductCard 
@@ -471,13 +466,10 @@ export default function ProductsPage() {
                 if (tab.id === 'gender' && searchParams.has('gender')) hasActiveValues = true;
                 if (tab.id === 'shape' && searchParams.has('shape')) hasActiveValues = true;
                 if (tab.id === 'size' && searchParams.has('frameSize')) hasActiveValues = true;
-                if (tab.id === 'brand' && searchParams.has('brand')) hasActiveValues = true;
                 if (tab.id === 'color' && searchParams.has('frameColor')) hasActiveValues = true;
                 if (tab.id === 'type' && searchParams.has('frameType')) hasActiveValues = true;
                 if (tab.id === 'material' && searchParams.has('material')) hasActiveValues = true;
-                if (tab.id === 'weight' && searchParams.has('weight')) hasActiveValues = true;
                 if (tab.id === 'faceShape' && searchParams.has('faceShape')) hasActiveValues = true;
-                if (tab.id === 'rating' && searchParams.has('rating')) hasActiveValues = true;
                 if (tab.id === 'toggles' && searchParams.has('isPremium')) hasActiveValues = true;
 
                 return (
@@ -623,28 +615,6 @@ export default function ProductsPage() {
                 </div>
               )}
 
-              {activeFilterTab === 'brand' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Brand</h4>
-                  {BRANDS.map(brand => {
-                    const activeBrands = searchParams.get('brand')?.split(',') || [];
-                    const isChecked = activeBrands.includes(brand);
-                    return (
-                      <label key={brand} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleFilter('brand', brand)}
-                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                        />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {brand}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
 
               {activeFilterTab === 'color' && (
                 <div className="space-y-3.5 animate-fade-in">
@@ -726,28 +696,6 @@ export default function ProductsPage() {
                 </div>
               )}
 
-              {activeFilterTab === 'weight' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Weight</h4>
-                  {WEIGHTS.map(weight => {
-                    const activeWeights = searchParams.get('weight')?.split(',') || [];
-                    const isChecked = activeWeights.includes(weight);
-                    return (
-                      <label key={weight} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleFilter('weight', weight)}
-                          className="accent-[#D4A04D] w-4 h-4 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                        />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {weight}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
 
               {activeFilterTab === 'faceShape' && (
                 <div className="space-y-3.5 animate-fade-in">
@@ -772,39 +720,6 @@ export default function ProductsPage() {
                 </div>
               )}
 
-              {activeFilterTab === 'rating' && (
-                <div className="space-y-3.5 animate-fade-in">
-                  <h4 className="text-white text-xs font-extrabold uppercase tracking-wider mb-2">Select Rating</h4>
-                  {[
-                    { value: '4', label: '★ 4.0 & above' },
-                    { value: '4.5', label: '★ 4.5 & above' },
-                  ].map(rat => {
-                    const isChecked = searchParams.get('rating') === rat.value;
-                    return (
-                      <label key={rat.value} className="flex items-center gap-3 cursor-pointer group text-xs py-1">
-                        <input
-                          type="radio"
-                          name="ratingMobile"
-                          checked={isChecked}
-                          onChange={() => updateSingleFilter('rating', rat.value)}
-                          className="accent-[#D4A04D] w-4 h-4 cursor-pointer"
-                        />
-                        <span className={`text-[#A7A7A7] group-hover:text-white transition-colors uppercase font-bold text-[10px] tracking-wide ${isChecked ? 'text-white' : ''}`}>
-                          {rat.label}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {searchParams.get('rating') && (
-                    <button
-                      onClick={() => updateSingleFilter('rating', '')}
-                      className="text-[#D4A04D] text-[10px] font-extrabold uppercase mt-2.5 hover:underline bg-transparent border-none cursor-pointer"
-                    >
-                      Clear Rating
-                    </button>
-                  )}
-                </div>
-              )}
 
               {activeFilterTab === 'toggles' && (
                 <div className="space-y-4 animate-fade-in">

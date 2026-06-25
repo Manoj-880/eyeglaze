@@ -15,6 +15,8 @@ interface CartItem {
   fittingCharge: number;
   qty: number;
   image?: string;
+  lensPayload?: any;
+  power?: any;
   product?: any;
 }
 
@@ -163,6 +165,7 @@ export default function CheckoutPage() {
           qty: item.qty,
           image: item.product?.images?.[0] || item.image || '',
           product: item.product,
+          power: item.power,
         }));
         setItems(mapped);
       })
@@ -690,6 +693,12 @@ export default function CheckoutPage() {
                     <h4 className="text-white font-bold line-clamp-1">{item.name}</h4>
                     <p className="text-[#A7A7A7] text-[10px] mt-0.5">{item.color} · Qty: {item.qty}</p>
                     {item.lens && <p className="text-[#D4A04D] text-[10px] mt-0.5 line-clamp-1">Lens: {item.lens}</p>}
+                    {item.power && (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                       <p className="text-[#D4A04D]/90 text-[10px] mt-0.5 font-bold">
+                         Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
+                         {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
+                       </p>
+                     )}
                   </div>
                   <div className="text-right">
                     <span className="text-white font-bold">₹{(item.framePriceCalculated + item.lensPrice + item.fittingCharge) * item.qty}</span>

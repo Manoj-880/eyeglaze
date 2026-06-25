@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../lib/api';
 
 interface LensType {
@@ -20,6 +21,17 @@ interface Lens {
 }
 
 export default function AdminLensesPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category') || 'eyeglasses';
+
+  const getCategoryDisplayName = (slug: string) => {
+    if (slug === 'eyeglasses' || slug === 'prescription') return 'Eyeglasses';
+    if (slug === 'sunglasses') return 'Sunglasses';
+    if (slug === 'power-sunglasses') return 'Special Power';
+    return slug.charAt(0).toUpperCase() + slug.slice(1);
+  };
+
   const [lensTypes, setLensTypes] = useState<LensType[]>([]);
   const [lenses, setLenses] = useState<Lens[]>([]);
   const [loadingTypes, setLoadingTypes] = useState(true);
@@ -30,6 +42,10 @@ export default function AdminLensesPage() {
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
 
   const selectedType = lensTypes.find(t => t._id === selectedTypeId);
+
+  useEffect(() => {
+    setSelectedTypeId(null);
+  }, [categoryParam]);
 
   useEffect(() => {
     if (lensTypes.length > 0 && !selectedTypeId) {
@@ -55,20 +71,24 @@ export default function AdminLensesPage() {
   const fetchLensTypes = useCallback(async () => {
     setLoadingTypes(true);
     try {
-      const res = await api.get('/admin/lens-types');
+      const res = await api.get(`/admin/lens-types?category=${categoryParam}`);
       setLensTypes(res.data.lensTypes || []);
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Failed to fetch lens types', 'error');
     } finally {
       setLoadingTypes(false);
     }
-  }, []);
+  }, [categoryParam]);
 
   const fetchLenses = useCallback(async () => {
+    if (!selectedTypeId) {
+      setLenses([]);
+      setLoadingLenses(false);
+      return;
+    }
     setLoadingLenses(true);
     try {
-      const url = selectedTypeId ? `/admin/lenses?typeId=${selectedTypeId}` : '/admin/lenses';
-      const res = await api.get(url);
+      const res = await api.get(`/admin/lenses?typeId=${selectedTypeId}`);
       setLenses(res.data.lenses || []);
     } catch (err: any) {
       showToast(err.response?.data?.message || 'Failed to fetch lenses', 'error');
@@ -99,6 +119,7 @@ export default function AdminLensesPage() {
     const payload = {
       name: formData.get('name') as string,
       status: formData.get('status') as string,
+      category: categoryParam,
     };
 
     try {
@@ -188,8 +209,18 @@ export default function AdminLensesPage() {
 
       {/* Top Header & Actions */}
       <div className="sticky top-0 bg-[#0B0B0C] z-10 pb-4 border-b border-[#2A2A2D]">
+        <div className="mb-2">
+          <button
+            onClick={() => navigate('/admin/categories')}
+            className="text-xs text-[#A7A7A7] hover:text-[#D4A04D] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors bg-transparent border-none p-0 cursor-pointer"
+          >
+            ← Back to Categories
+          </button>
+        </div>
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Lens Management</h1>
+          <h1 className="text-2xl font-bold text-white uppercase tracking-wide">
+            {getCategoryDisplayName(categoryParam)} Lens Management
+          </h1>
           <div className="flex gap-3">
             <button
               onClick={() => { setEditingType(null); setIsTypeModalOpen(true); }}

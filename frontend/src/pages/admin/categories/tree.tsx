@@ -64,7 +64,19 @@ export default function CategoryTreeView() {
             {node.type}
           </span>
 
-          <span className="text-white text-xs font-bold">{node.name}</span>
+          {node.slug !== 'contact-lenses' && node.slug !== 'contact_lenses' && node.slug !== 'accessories' ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/admin/lenses?category=${node.slug}`);
+              }}
+              className="text-white hover:text-[#D4A04D] hover:underline text-xs font-bold bg-transparent border-none p-0 cursor-pointer text-left"
+            >
+              {node.name}
+            </button>
+          ) : (
+            <span className="text-white text-xs font-bold">{node.name}</span>
+          )}
           <span className="text-gray-500 text-[10px] font-mono">({node.code})</span>
 
           <div className="flex-1" />

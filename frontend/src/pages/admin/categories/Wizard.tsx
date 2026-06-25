@@ -62,9 +62,8 @@ export default function CategoryWizard() {
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // References list for Hierarchy selection
-  const [parentCats, setParentCats] = useState<any[]>([]);
-  const [loadingParents, setLoadingParents] = useState(false);
+
+
 
   // Accordion active sections state
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
@@ -110,21 +109,7 @@ export default function CategoryWizard() {
 
   const formValues = watch();
 
-  // Load parent data for dropdown lists
-  useEffect(() => {
-    async function loadParents() {
-      setLoadingParents(true);
-      try {
-        const catsRes = await api.get('/admin/categories?type=Category');
-        setParentCats(catsRes.data.items || []);
-      } catch (err) {
-        console.error('Failed to load parent reference dropdown lists', err);
-      } finally {
-        setLoadingParents(false);
-      }
-    }
-    loadParents();
-  }, []);
+
 
   // Auto-generate code & slug from Category name
   const nameValue = watch('name');
@@ -194,25 +179,8 @@ export default function CategoryWizard() {
     setActiveAccordion(activeAccordion === name ? null : name);
   };
 
-  // Find parent names for live preview
-  const getParentName = () => {
-    if (formValues.type === 'SubCategory') {
-      const parent = parentCats.find(c => c._id === formValues.categoryId);
-      return parent ? `${parent.name} (${parent.code})` : 'None';
-    }
-    return 'N/A';
-  };
 
-  // Count active filters for preview card
-  const getActiveFiltersCount = () => {
-    const filtersList = [
-      formValues.brandFilter, formValues.priceFilter, formValues.colorFilter,
-      formValues.shapeFilter, formValues.materialFilter, formValues.widthFilter,
-      formValues.lensFilter, formValues.weightFilter, formValues.featuresFilter,
-      formValues.faceShapeFilter
-    ];
-    return filtersList.filter(Boolean).length;
-  };
+
 
   const onSubmit = async (data: CategoryFormData) => {
     setIsSaving(true);
@@ -329,47 +297,7 @@ export default function CategoryWizard() {
                 <span>01.</span> Core Category Details
               </h2>
 
-              {/* Type */}
-              <div>
-                <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1.5">Category Type *</label>
-                <select
-                  {...register('type')}
-                  disabled={!!id}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none disabled:opacity-50"
-                >
-                  <option value="Category">Main Category</option>
-                  <option value="SubCategory">Sub Category</option>
-                </select>
-              </div>
 
-              {/* Conditional Hierarchy Selection */}
-              {formValues.type !== 'Category' && (
-                <div className="p-4 bg-[#18181A] border border-[#2A2A2D]/40 rounded-xl space-y-3">
-                  <div className="text-xs text-[#A7A7A7] font-semibold flex items-center gap-1.5">
-                    <span>🔀</span> Establish Parent Connection
-                  </div>
-
-                  {formValues.type === 'SubCategory' && (
-                    <div>
-                      <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block mb-1">Select Parent Main Category *</label>
-                      {loadingParents ? (
-                        <div className="text-xs text-zinc-500 animate-pulse">Loading categories...</div>
-                      ) : (
-                        <select
-                          {...register('categoryId')}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                        >
-                          <option value="">-- Choose Category --</option>
-                          {parentCats.map(c => (
-                            <option key={c._id} value={c._id}>{c.name} ({c.code})</option>
-                          ))}
-                        </select>
-                      )}
-                      {errors.categoryId && <p className="text-[#FF4444] text-[10px] mt-1 font-semibold">{errors.categoryId.message}</p>}
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Name */}
               <div>
@@ -584,98 +512,6 @@ export default function CategoryWizard() {
                 )}
               </div>
 
-              {/* Accordion 2: Customer Search Filters */}
-              <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden shadow-xl transition-all">
-                <button
-                  type="button"
-                  onClick={() => toggleAccordion('filters')}
-                  className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#1A1A1C] transition-colors cursor-pointer border-none"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-base text-[#D4A04D]">🎛️</span>
-                    <div>
-                      <span className="text-white text-xs font-extrabold uppercase tracking-wider block">Customer Search Filters</span>
-                      <span className="text-[10px] text-[#A7A7A7] block mt-0.5">Toggle filter controls visible on product list catalogs</span>
-                    </div>
-                  </div>
-                  <span className={`text-xs text-[#A7A7A7] transition-transform duration-200 ${activeAccordion === 'filters' ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-
-                {activeAccordion === 'filters' && (
-                  <div className="p-6 border-t border-[#2A2A2D] bg-[#0E0E0F] space-y-4">
-                    <p className="text-[10px] text-[#A7A7A7] uppercase font-bold tracking-wider mb-2">Enable / Disable Filters for this Catalog Tier:</p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {[
-                        { field: 'brandFilter', label: 'Brand Filter' },
-                        { field: 'priceFilter', label: 'Price Range' },
-                        { field: 'colorFilter', label: 'Colors Grid' },
-                        { field: 'shapeFilter', label: 'Frame Shapes' },
-                        { field: 'materialFilter', label: 'Frame Materials' },
-                        { field: 'widthFilter', label: 'Frame Width' },
-                        { field: 'lensFilter', label: 'Lens Types' },
-                        { field: 'weightFilter', label: 'Weight Filter' },
-                        { field: 'featuresFilter', label: 'Features Filter' },
-                        { field: 'faceShapeFilter', label: 'Face Shape Filter' }
-                      ].map(({ field, label }) => (
-                        <label key={field} className="flex items-center gap-3 p-3 bg-[#0B0B0C] border border-zinc-800/80 hover:border-zinc-700/80 rounded-xl cursor-pointer select-none text-xs font-bold text-gray-300 transition-colors">
-                          <input
-                            type="checkbox"
-                            {...register(field as any)}
-                            className="w-4 h-4 accent-[#D4A04D] cursor-pointer"
-                          />
-                          <span>{label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Accordion 3: Website Menu Mapping */}
-              <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl overflow-hidden shadow-xl transition-all">
-                <button
-                  type="button"
-                  onClick={() => toggleAccordion('menu')}
-                  className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-[#1A1A1C] transition-colors cursor-pointer border-none"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-base text-[#D4A04D]">🗺️</span>
-                    <div>
-                      <span className="text-white text-xs font-extrabold uppercase tracking-wider block">Website Navigation Menu Mapping</span>
-                      <span className="text-[10px] text-[#A7A7A7] block mt-0.5">Control where and how this category displays in header/footer</span>
-                    </div>
-                  </div>
-                  <span className={`text-xs text-[#A7A7A7] transition-transform duration-200 ${activeAccordion === 'menu' ? 'rotate-180' : ''}`}>▼</span>
-                </button>
-
-                {activeAccordion === 'menu' && (
-                  <div className="p-6 border-t border-[#2A2A2D] bg-[#0E0E0F] space-y-5">
-                    <div className="flex items-center justify-between bg-[#0B0B0C] border border-zinc-800 p-4 rounded-xl">
-                      <div>
-                        <h4 className="text-white text-xs font-bold block">Display in Nav Navigation Menu grids</h4>
-                        <p className="text-[10px] text-[#A7A7A7] mt-0.5">Toggle catalog link inclusion in site headers/footers dynamically.</p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        {...register('showInMenu')}
-                        className="w-9 h-5 accent-[#D4A04D] cursor-pointer"
-                      />
-                    </div>
-
-                    {formValues.showInMenu && (
-                      <div className="space-y-2.5 animate-fade-in">
-                        <label className="text-[#A7A7A7] text-[10px] font-bold uppercase tracking-wider block">Navigation Menu Text Label</label>
-                        <input
-                          type="text"
-                          {...register('menuLabel')}
-                          placeholder={formValues.name || 'Category Name'}
-                          className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-xs focus:border-[#D4A04D] focus:outline-none"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Bottom Actions Form Footer */}
@@ -732,10 +568,7 @@ export default function CategoryWizard() {
                 </div>
               )}
 
-              {/* Float Type Badge */}
-              <span className="absolute top-3 left-3 bg-[#0B0B0C]/85 backdrop-blur-md px-2 py-0.5 rounded text-[8px] font-black uppercase text-[#D4A04D] border border-zinc-800">
-                {formValues.type}
-              </span>
+
             </div>
 
             {/* Metadata Info Panel */}
@@ -752,22 +585,10 @@ export default function CategoryWizard() {
                 </p>
               )}
 
-              {/* Hierarchy Parent Trace */}
-              {formValues.type !== 'Category' && (
-                <div className="bg-[#0B0B0C] p-3 rounded-xl border border-zinc-900 flex items-center justify-between text-[10px]">
-                  <span className="text-zinc-500 font-bold uppercase">Parent Trace:</span>
-                  <span className="text-white font-extrabold text-right font-mono max-w-[70%] truncate">
-                    {getParentName()}
-                  </span>
-                </div>
-              )}
+
 
               {/* Dynamic Stats Grid */}
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="bg-[#18181A] p-2.5 rounded-xl border border-zinc-900 text-center">
-                  <span className="text-zinc-500 text-[8px] font-black uppercase tracking-wider block">Active Filters</span>
-                  <span className="text-white text-sm font-extrabold mt-0.5 block">{getActiveFiltersCount()} / 10</span>
-                </div>
+              <div className="grid grid-cols-1 gap-3 pt-2">
                 <div className="bg-[#18181A] p-2.5 rounded-xl border border-zinc-900 text-center">
                   <span className="text-zinc-500 text-[8px] font-black uppercase tracking-wider block">Display Order</span>
                   <span className="text-white text-sm font-extrabold mt-0.5 block">#{formValues.displayOrder || '0'}</span>

@@ -4,13 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 import { socket } from '../lib/socket';
 import SEO from '../components/SEO';
-import Footer from '../components/Footer';
-import BrandIcon from '../components/BrandIcon';
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { user, cartCount, checkAuth, logout } = useAuth();
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const { user, wishlist, checkAuth } = useAuth();
 
   const carouselRef = useRef<HTMLDivElement>(null);
 
@@ -94,6 +91,113 @@ export default function LandingPage() {
     };
   }, []);
 
+  // Categories States
+  const [categories, setCategories] = useState<any[]>([]);
+
+  // Fetch homepage categories on mount
+  useEffect(() => {
+    let active = true;
+    const fetchCats = () => {
+      api.get('/categories')
+        .then((res) => {
+          if (!active) return;
+          setCategories(res.data);
+        })
+        .catch((err) => {
+          console.error('Error fetching categories:', err);
+        });
+    };
+
+    fetchCats();
+
+    const handleCategoryChange = () => {
+      fetchCats();
+    };
+
+    socket.on('category_changed', handleCategoryChange);
+
+    return () => {
+      active = false;
+      socket.off('category_changed', handleCategoryChange);
+    };
+  }, []);
+
+
+  const getCategorySubOptions = (cat: any) => {
+    const slug = cat.slug.toLowerCase();
+    
+    if (slug === 'eyeglasses' || slug === 'prescription') {
+      return [
+        { label: 'Men', img: '/images/men_eyeglasses.png', to: `/products?category=${cat.slug}&gender=men`, gender: 'men', shapeModal: true },
+        { label: 'Women', img: '/images/women_eyeglasses.png', to: `/products?category=${cat.slug}&gender=women`, gender: 'women', shapeModal: true },
+        { label: 'Kids', img: '/images/kids_eyeglasses.png', to: `/products?category=${cat.slug}&gender=kids`, gender: 'kids', shapeModal: true },
+        { label: 'Contact Lenses', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses', shapeModal: false }
+      ];
+    }
+    
+    if (slug === 'sunglasses') {
+      return [
+        { label: 'Men', img: '/images/men_sunglasses.png', to: `/products?category=${cat.slug}&gender=men`, gender: 'men', shapeModal: true },
+        { label: 'Women', img: '/images/women_sunglasses.png', to: `/products?category=${cat.slug}&gender=women`, gender: 'women', shapeModal: true },
+        { label: 'Kids', img: '/images/kids_sunglasses.png', to: `/products?category=${cat.slug}&gender=kids`, gender: 'kids', shapeModal: true },
+        { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories', shapeModal: false }
+      ];
+    }
+
+    if (slug === 'power-sunglasses') {
+      return [
+        { label: 'Men', img: '/images/men_sunglasses.png', to: `/products?category=${cat.slug}&gender=men`, gender: 'men', shapeModal: true },
+        { label: 'Women', img: '/images/women_sunglasses.png', to: `/products?category=${cat.slug}&gender=women`, gender: 'women', shapeModal: true },
+        { label: 'Kids', img: '/images/kids_sunglasses.png', to: `/products?category=${cat.slug}&gender=kids`, gender: 'kids', shapeModal: true },
+        { label: 'View More', img: cat.bannerImage || '/images/cat_sunglasses.png', to: `/products?category=${cat.slug}`, shapeModal: false }
+      ];
+    }
+
+    if (slug === 'reading-glasses') {
+      return [
+        { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power', categoryOverride: 'zero-power', shapeModal: true },
+        { label: 'Reading', img: '/images/reading_book.png', to: `/products?category=${cat.slug}`, categoryOverride: 'reading-glasses', shapeModal: true },
+        { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true', categoryOverride: 'sunglasses', shapeModal: true }
+      ];
+    }
+
+    if (slug === 'contact-lenses') {
+      return [
+        { label: 'Clear Lenses', img: '/images/cat_contacts.png', to: `/products?category=${cat.slug}&type=clear`, shapeModal: false },
+        { label: 'Color Lenses', img: '/images/cat_contacts.png', to: `/products?category=${cat.slug}&type=color`, shapeModal: false },
+        { label: 'Solutions', img: '/images/accessories.png', to: `/products?category=${cat.slug}&type=solution`, shapeModal: false },
+        { label: 'View More', img: cat.bannerImage || '/images/cat_contacts.png', to: `/products?category=${cat.slug}`, shapeModal: false }
+      ];
+    }
+
+    // Default generic sub-options for any other dynamic category
+    return [
+      { label: 'Men', img: '/images/men_eyeglasses.png', to: `/products?category=${cat.slug}&gender=men`, gender: 'men', shapeModal: true },
+      { label: 'Women', img: '/images/women_eyeglasses.png', to: `/products?category=${cat.slug}&gender=women`, gender: 'women', shapeModal: true },
+      { label: 'Kids', img: '/images/kids_eyeglasses.png', to: `/products?category=${cat.slug}&gender=kids`, gender: 'kids', shapeModal: true },
+      { label: 'View More', img: cat.bannerImage || '/images/hero_model.png', to: `/products?category=${cat.slug}`, shapeModal: false }
+    ];
+  };
+
+  const handleSubOptionClick = (e: React.MouseEvent, option: any, cat: any) => {
+    if (option.shapeModal) {
+      e.preventDefault();
+      const categorySlug = option.categoryOverride || cat.slug;
+      setShapeModalCategory(categorySlug);
+      
+      if (option.gender) {
+        setShapeModalGender(option.gender);
+        setShapeModalTitle(`${option.label}'s ${cat.name}`);
+      } else {
+        setShapeModalGender('');
+        setShapeModalTitle(option.label);
+      }
+      setIsShapeModalOpen(true);
+    } else {
+      navigate(option.to);
+    }
+  };
+
   const getEmbedUrl = (url: string) => {
     if (!url) return '';
     const ytMatch = url.match(
@@ -126,18 +230,18 @@ export default function LandingPage() {
   const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
   const [isPrescriptionOpen, setIsPrescriptionOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isGoldModalOpen, setIsGoldModalOpen] = useState(false);
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const [isShapeModalOpen, setIsShapeModalOpen] = useState(false);
   const [shapeModalTitle, setShapeModalTitle] = useState('');
   const [shapeModalCategory, setShapeModalCategory] = useState('');
+  const [shapeModalGender, setShapeModalGender] = useState('');
 
   // Lock body scroll on mobile when menus are open
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
-    if (isMobile && (isProfileDropdownOpen || isMobileMenuOpen)) {
+    if (isMobile && isShapeModalOpen) {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } else {
@@ -148,31 +252,9 @@ export default function LandingPage() {
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
     };
-  }, [isProfileDropdownOpen, isMobileMenuOpen]);
+  }, [isShapeModalOpen]);
 
-  const handleCategoryClick = (e: React.MouseEvent, label: string, category: string) => {
-    if (label === 'Contact Lens' || label === 'Accessories') {
-      return;
-    }
-    e.preventDefault();
-    setShapeModalCategory(category);
-    
-    let title = '';
-    if (category === 'prescription') {
-      title = `${label}'s Eyeglasses`;
-    } else if (category === 'sunglasses') {
-      title = `${label}'s Sunglasses`;
-    } else if (category === 'zero-power') {
-      title = `Zero Power Glasses`;
-    } else if (category === 'reading-glasses') {
-      title = `Reading Glasses`;
-    } else {
-      title = `${label} Glasses`;
-    }
-    
-    setShapeModalTitle(title);
-    setIsShapeModalOpen(true);
-  };
+
 
   // Gold Membership States & Handlers
   const [isActivatingGold, setIsActivatingGold] = useState(false);
@@ -497,172 +579,8 @@ export default function LandingPage() {
         keywords="eyeglaze, eye glaze, luxury glasses, home eye test, prescription eyeglasses, custom lenses, sunglasses"
       />
       
-      {/* ================= DESKTOP LAYOUT ================= */}
-      <div className="hidden md:block w-full">
-        {/* Top Header */}
-        <header className="bg-[#0B0B0C]/95 backdrop-blur-md border-b border-[#2A2A2D] fixed top-0 left-0 right-0 z-40 w-full transition-colors duration-300">
-        <div className="w-full px-4 sm:px-6 md:px-12 lg:px-16 h-16 flex items-center justify-between relative">
-          
-          {/* Left spacer/tagline (visible on desktop) */}
-          <div className="hidden md:flex items-center gap-2 text-[9px] text-gray-500 tracking-widest uppercase font-semibold">
-            <span>Free Shipping</span>
-            <span className="w-1 h-1 bg-[#D4A04D] rounded-full" />
-            <span>7-Day Returns</span>
-          </div>
-          
-          {/* Hamburger Menu (visible on mobile) */}
-          <button 
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden text-[#D4A04D] hover:text-[#C8923E] p-1.5 focus:outline-none transition-colors cursor-pointer"
-            aria-label="Open Menu"
-          >
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-
-          {/* Center: Logo with Gold Styling */}
-          <Link to="/" className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center select-none text-center">
-            <span className="text-[#D4A04D] font-serif text-xl md:text-2xl tracking-[0.25em] uppercase font-bold leading-none">EYEGLAZE</span>
-            <span className="text-[#D4A04D]/80 font-sans text-[8px] md:text-[9px] tracking-[0.4em] uppercase mt-0.5">EYEWEAR</span>
-          </Link>
-
-          {/* Right: Actions (Wishlist, Cart, Profile/Login) */}
-          <div className="flex items-center gap-3.5 md:gap-6 z-10">
-            {/* Search Icon */}
-            <button 
-              onClick={() => navigate('/products')} 
-              className="text-gray-400 hover:text-[#D4A04D] transition-colors cursor-pointer"
-              title="Search"
-            >
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
-
-            {/* Wishlist Icon */}
-            <Link 
-              to="/wishlist" 
-              className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" 
-              title="Wishlist"
-            >
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </Link>
-
-            {/* Cart Icon with Badge */}
-            <Link to="/cart" className="text-gray-400 hover:text-[#D4A04D] transition-colors relative cursor-pointer" title="Shopping Cart">
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[8px] w-4 h-4 rounded-full flex items-center justify-center border border-[#0B0B0C]">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
-
-            {/* Profile / Login Button & Dropdown */}
-            {user ? (
-              <div className="relative">
-                <button 
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="hidden md:flex items-center gap-2 bg-[#131314] border border-[#2A2A2D] hover:border-[#D4A04D]/50 rounded-full py-1 px-2.5 transition-colors text-[10px] font-bold text-white cursor-pointer focus:outline-none"
-                  title="Account"
-                >
-                  <div className="w-4 h-4 bg-[#D4A04D] text-black font-extrabold rounded-full flex items-center justify-center text-[8px] uppercase">
-                    {user.name ? user.name[0] : 'U'}
-                  </div>
-                  <span className="max-w-[80px] truncate">{user.name || 'Account'}</span>
-                  <svg 
-                    className={`w-2.5 h-2.5 text-gray-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor" 
-                    strokeWidth="3"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                {isProfileDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
-                    <div className="absolute right-0 mt-3 w-52 max-h-[85vh] overflow-y-auto overscroll-y-contain bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-3 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in text-left scrollbar-none">
-                      {/* Dropdown Header */}
-                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#2A2A2D] select-none">
-                        <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-xs uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
-                          {user.name ? user.name[0].toUpperCase() : 'U'}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-white text-xs font-black truncate">{user.name || 'Customer'}</div>
-                          <div className="text-gray-500 text-[10px] truncate mt-0.5">{user.email || ''}</div>
-                          {user.membershipActive && (
-                            <div className="inline-flex items-center gap-0.5 text-[9px] text-[#D4A04D] font-extrabold uppercase mt-1">
-                              <BrandIcon name="👑" className="w-3 h-3 text-[#D4A04D]" /> Gold Member
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Dropdown Navigation */}
-                      <nav className="mt-2 space-y-0.5">
-                        {[
-                          { href: '/profile', label: 'My Profile', icon: '👤' },
-                          { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
-                          { href: '/orders', label: 'My Orders', icon: '📦' },
-                          { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
-                          { href: '/membership', label: 'Gold Membership', icon: '👑' },
-                          { href: '/payments', label: 'Payment History', icon: '💳' },
-                          { href: '/wallet', label: 'My Wallet', icon: '👛' },
-                        ].map(({ href, label, icon }) => (
-                          <Link
-                            key={href}
-                            to={href}
-                            onClick={() => setIsProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
-                          >
-                            <BrandIcon name={icon} className="w-3.5 h-3.5 text-[#D4A04D]" />
-                            <span>{label}</span>
-                          </Link>
-                        ))}
-                      </nav>
-
-                      {/* Dropdown Footer / Logout */}
-                      <div className="mt-2 pt-2 border-t border-[#2A2A2D]">
-                        <button
-                          onClick={async () => {
-                            setIsProfileDropdownOpen(false);
-                            await logout();
-                            navigate('/');
-                          }}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
-                        >
-                          <BrandIcon name="🚪" className="w-3.5 h-3.5 text-[#D4A04D]" />
-                          <span>Logout</span>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <Link 
-                to="/login" 
-                className="hidden md:block bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-[9px] uppercase py-2 px-3.5 rounded-lg tracking-wider transition-colors cursor-pointer"
-              >
-                Login/Signup
-              </Link>
-            )}
-          </div>
-        </div>
-
-
-      </header>
-
-      {/* Main Body - 100% View Layout */}
-      <main className="w-full px-4 sm:px-6 md:px-12 lg:px-16 py-6 flex flex-col gap-10 mt-16">
+      {/* Main Body - Desktop View Layout */}
+      <div className="hidden md:block w-full py-6">
         
         {/* Hero Section - Full View */}
         <section className="relative bg-[#111] rounded-2xl overflow-hidden border border-[#2A2A2D] min-h-[260px] sm:min-h-[420px] md:min-h-[520px] flex items-center w-full">
@@ -768,230 +686,51 @@ export default function LandingPage() {
 
         {/* Shop by Category - Desktop View */}
         <section className="flex flex-col gap-8 w-full mt-2">
-          
-          {/* Eyeglasses Section */}
-          <div className="flex flex-col gap-4">
-            <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Eyeglasses</h3>
-            <div className="grid grid-cols-4 gap-6 w-full">
-              {[
-                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men', category: 'prescription' },
-                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women', category: 'prescription' },
-                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids', category: 'prescription' },
-                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses', category: 'contact-lenses' }
-              ].map((item, idx) => (
-                <Link 
-                  key={idx} 
-                  to={item.to}
-                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
-                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
-                >
-                  <img 
-                    src={item.img} 
-                    alt={item.label} 
-                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                  />
-                  
-                  <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
-                    <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
-                    <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
-                      <span>Shop Now</span>
-                      <span>→</span>
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+          <div className="flex flex-col">
+            {/* <h2 className="text-lg font-bold uppercase tracking-wider text-white">Shop by Category</h2> */}
+            {/* <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-widest mt-0.5">Explore our premium dynamic collections</span> */}
           </div>
 
-          {/* Sunglasses & Accessories Section */}
-          <div className="flex flex-col gap-4">
-            <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Sunglasses & Accessories</h3>
-            <div className="grid grid-cols-4 gap-6 w-full">
-              {[
-                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men', category: 'sunglasses' },
-                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women', category: 'sunglasses' },
-                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids', category: 'sunglasses' },
-                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories', category: 'accessories' }
-              ].map((item, idx) => (
-                <Link 
-                  key={idx} 
-                  to={item.to}
-                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
-                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
-                >
-                  <img 
-                    src={item.img} 
-                    alt={item.label} 
-                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                  />
-                  
-                  <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
-                    <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
-                    <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
-                      <span>Shop Now</span>
-                      <span>→</span>
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Reading Glasses Section */}
-          <div className="flex flex-col gap-4">
-            <h3 className="text-base font-extrabold text-white uppercase tracking-wider">Reading Glasses</h3>
-            <div className="grid grid-cols-3 gap-6 w-full">
-              {[
-                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power', category: 'zero-power' },
-                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses', category: 'reading-glasses' },
-                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true', category: 'sunglasses' }
-              ].map((item, idx) => (
-                <Link 
-                  key={idx} 
-                  to={item.to}
-                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
-                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[1.35/1] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
-                >
-                  <img 
-                    src={item.img} 
-                    alt={item.label} 
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  
-                  <div className="relative z-10 bg-gradient-to-t from-black/85 via-black/75 to-transparent pt-10 pb-4 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
-                    <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
-                    <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
-                      <span>Shop Now</span>
-                      <span>→</span>
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
+          {categories.map((cat) => {
+            const subOptions = getCategorySubOptions(cat);
+            return (
+              <div key={cat._id || cat.slug} className="flex flex-col gap-4">
+                <h3 className="text-base font-extrabold text-white uppercase tracking-wider">{cat.name}</h3>
+                <div className={`grid gap-6 w-full ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                  {subOptions.map((item, idx) => (
+                    <Link 
+                      key={idx} 
+                      to={item.to}
+                      onClick={(e) => handleSubOptionClick(e, item, cat)}
+                      className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-2xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end transition-all duration-300 hover:border-[#D4A04D]/60 hover:shadow-[0_0_20px_rgba(212,160,77,0.1)] cursor-pointer"
+                    >
+                      <img 
+                        src={item.img} 
+                        alt={item.label} 
+                        className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                      />
+                      
+                      <div className="relative z-10 bg-gradient-to-t from-black via-black/85 to-transparent pt-12 pb-5 px-4 flex flex-col items-center text-center justify-center transition-all duration-300">
+                        <span className="text-sm font-black text-white uppercase tracking-wider leading-none group-hover:text-[#D4A04D] transition-colors">{item.label}</span>
+                        <span className="text-[#D4A04D] text-[10px] font-bold uppercase mt-1.5 tracking-widest flex items-center justify-center gap-0.5">
+                          <span>Shop Now</span>
+                          <span>→</span>
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </section>
-        </main>
-      </div> {/* END DESKTOP LAYOUT */}
+      </div>
 
 
       {/* ================= MOBILE LAYOUT (Mockup Style) ================= */}
       <div className="block md:hidden w-full bg-black text-white pb-6 font-sans">
-        {/* Mobile Header */}
-        <header className="bg-[#050505] fixed top-0 left-0 right-0 z-40 w-full px-4 h-16 flex items-center justify-between border-b border-[#151515]">
-          {/* Left: Spacer to keep logo centered on mobile */}
-          <div className="w-9 h-9" />
-
-          {/* Center: Logo */}
-          <Link to="/" className="flex flex-col items-center text-center select-none">
-            <span className="text-[#D4A04D] font-serif text-[18px] tracking-[0.25em] uppercase font-bold leading-none">EYEGLAZE</span>
-            <span className="text-[#D4A04D]/85 font-sans text-[8px] tracking-[0.4em] uppercase mt-0.5 font-bold">EYEWEAR</span>
-          </Link>
-
-          {/* Right: Shopping Bag & Profile/Login */}
-          <div className="flex items-center gap-3.5">
-            {/* Shopping Bag */}
-            <Link to="/cart" className="text-gray-300 hover:text-[#D4A04D] transition-colors relative cursor-pointer" title="Shopping Cart">
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-[#D4A04D] text-black font-extrabold text-[7.5px] w-4 h-4 rounded-full flex items-center justify-center border border-[#050505]">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
-
-            {/* Mobile Profile / Login Icon */}
-            {user ? (
-              <div className="relative">
-                <button 
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer bg-transparent focus:outline-none"
-                  title="Profile"
-                >
-                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </button>
-
-                {isProfileDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40 bg-transparent" onClick={() => setIsProfileDropdownOpen(false)} />
-                    <div className="absolute right-0 mt-3 w-52 max-h-[85vh] overflow-y-auto overscroll-y-contain bg-[#0F0F10]/95 backdrop-blur-md border border-[#D4A04D]/25 rounded-2xl p-3 shadow-[0_10px_30px_rgba(0,0,0,0.6),_0_0_20px_rgba(212,160,77,0.05)] z-50 animate-fade-in text-left scrollbar-none">
-                      {/* Dropdown Header */}
-                      <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#2A2A2D] select-none">
-                        <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-serif font-black rounded-full flex items-center justify-center text-xs uppercase shadow-[0_0_10px_rgba(212,160,77,0.15)]">
-                          {user.name ? user.name[0].toUpperCase() : 'U'}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-white text-xs font-black truncate">{user.name || 'Customer'}</div>
-                          <div className="text-gray-500 text-[10px] truncate mt-0.5">{user.email || ''}</div>
-                          {user.membershipActive && (
-                            <div className="inline-flex items-center gap-0.5 text-[9px] text-[#D4A04D] font-extrabold uppercase mt-1">
-                              <BrandIcon name="👑" className="w-3 h-3 text-[#D4A04D]" /> Gold Member
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Dropdown Navigation */}
-                      <nav className="mt-2 space-y-0.5">
-                        {[
-                          { href: '/profile', label: 'My Profile', icon: '👤' },
-                          { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
-                          { href: '/orders', label: 'My Orders', icon: '📦' },
-                          { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
-                          { href: '/membership', label: 'Gold Membership', icon: '👑' },
-                          { href: '/payments', label: 'Payment History', icon: '💳' },
-                          { href: '/wallet', label: 'My Wallet', icon: '👛' },
-                        ].map(({ href, label, icon }) => (
-                          <Link
-                            key={href}
-                            to={href}
-                            onClick={() => setIsProfileDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold text-gray-400 hover:bg-[#131314] hover:text-white transition-colors"
-                          >
-                            <BrandIcon name={icon} className="w-3.5 h-3.5 text-[#D4A04D]" />
-                            <span>{label}</span>
-                          </Link>
-                        ))}
-                      </nav>
-
-                      {/* Dropdown Footer / Logout */}
-                      <div className="mt-2 pt-2 border-t border-[#2A2A2D]">
-                        <button
-                          onClick={async () => {
-                            setIsProfileDropdownOpen(false);
-                            await logout();
-                            navigate('/');
-                          }}
-                          className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-left text-xs font-bold text-red-400 hover:bg-red-500/5 hover:text-red-300 transition-colors bg-transparent border-none cursor-pointer"
-                        >
-                          <BrandIcon name="🚪" className="w-3.5 h-3.5 text-[#D4A04D]" />
-                          <span>Logout</span>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <Link 
-                to="/login" 
-                className="w-9 h-9 rounded-full border border-zinc-700/60 flex items-center justify-center text-gray-300 hover:text-[#D4A04D] transition-colors cursor-pointer"
-                title="Login"
-              >
-                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-              </Link>
-            )}
-          </div>
-        </header>
-
         {/* Mobile Main Body */}
-        <main className="px-4 py-5 space-y-6 mt-16">
+        <div className="px-4 py-5 space-y-6">
           
           {/* Hero Slider Card */}
           <div className="relative bg-gradient-to-br from-[#0d0d0e] to-[#050505] border border-zinc-800 rounded-2xl p-5 min-h-[170px] flex items-center justify-between overflow-hidden shadow-xl">
@@ -1087,114 +826,51 @@ export default function LandingPage() {
 
           </div>
 
-          {/* Eyeglasses Section */}
-          <div className="space-y-3">
-            <h2 className="text-[10px] font-black text-white tracking-widest uppercase">EYEGLASSES</h2>
-            
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: 'Men', img: '/images/men_eyeglasses.png', to: '/products?category=prescription&gender=men', category: 'prescription' },
-                { label: 'Women', img: '/images/women_eyeglasses.png', to: '/products?category=prescription&gender=women', category: 'prescription' },
-                { label: 'Kids', img: '/images/kids_eyeglasses.png', to: '/products?category=prescription&gender=kids', category: 'prescription' },
-                { label: 'Contact Lens', img: '/images/cat_contacts.png', to: '/products?category=contact-lenses', category: 'contact-lenses' }
-              ].map((item, idx) => (
-                <Link 
-                  key={idx} 
-                  to={item.to}
-                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
-                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
-                >
-                  <img 
-                    src={item.img} 
-                    alt={item.label} 
-                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-103"
-                  />
-                  
-                  <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-6 pb-2 px-1.5 flex flex-col items-center text-center justify-center">
-                    <span className="text-[8px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
-                    <span className="text-[#D4A04D] text-[6px] font-bold uppercase mt-1 tracking-widest flex items-center justify-center gap-0.5">
-                      <span>Shop Now</span>
-                      <span>→</span>
-                    </span>
-                  </div>
-                </Link>
-              ))}
+          {/* Shop by Category - Mobile View */}
+          <div className="space-y-6 pb-4">
+            <div className="flex flex-col">
+              <h2 className="text-[10px] font-black text-white tracking-widest uppercase">Shop by Category</h2>
+              <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">Explore our premium dynamic collections</span>
             </div>
+
+            {categories.map((cat) => {
+              const subOptions = getCategorySubOptions(cat);
+              return (
+                <div key={cat._id || cat.slug} className="space-y-3">
+                  <h3 className="text-[10px] font-black text-white tracking-widest uppercase">{cat.name}</h3>
+                  <div className={`grid gap-2 ${subOptions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+                    {subOptions.map((item, idx) => (
+                      <Link 
+                        key={idx} 
+                        to={item.to}
+                        onClick={(e) => handleSubOptionClick(e, item, cat)}
+                        className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
+                      >
+                        <img 
+                          src={item.img} 
+                          alt={item.label} 
+                          className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-103"
+                        />
+                        
+                        <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-6 pb-2 px-1.5 flex flex-col items-center text-center justify-center">
+                          <span className="text-[8px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
+                          <span className="text-[#D4A04D] text-[6px] font-bold uppercase mt-1 tracking-widest flex items-center justify-center gap-0.5">
+                            <span>Shop Now</span>
+                            <span>→</span>
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Sunglasses & Accessories Section */}
-          <div className="space-y-3">
-            <h2 className="text-[10px] font-black text-white tracking-widest uppercase">SUNGLASSES & ACCESSORIES</h2>
-            
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { label: 'Men', img: '/images/men_sunglasses.png', to: '/products?category=sunglasses&gender=men', category: 'sunglasses' },
-                { label: 'Women', img: '/images/women_sunglasses.png', to: '/products?category=sunglasses&gender=women', category: 'sunglasses' },
-                { label: 'Kids', img: '/images/kids_sunglasses.png', to: '/products?category=sunglasses&gender=kids', category: 'sunglasses' },
-                { label: 'Accessories', img: '/images/accessories.png', to: '/products?category=accessories', category: 'accessories' }
-              ].map((item, idx) => (
-                <Link 
-                  key={idx} 
-                  to={item.to}
-                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
-                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[3/4.2] overflow-hidden group shadow-md flex flex-col justify-end"
-                >
-                  <img 
-                    src={item.img} 
-                    alt={item.label} 
-                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-103"
-                  />
-                  
-                  <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-6 pb-2 px-1.5 flex flex-col items-center text-center justify-center">
-                    <span className="text-[8px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
-                    <span className="text-[#D4A04D] text-[6px] font-bold uppercase mt-1 tracking-widest flex items-center justify-center gap-0.5">
-                      <span>Shop Now</span>
-                      <span>→</span>
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Reading Glasses Section */}
-          <div className="space-y-3 pb-8">
-            <h2 className="text-[10px] font-black text-white tracking-widest uppercase">READING GLASSES</h2>
-            
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: 'Zero Power', img: '/images/zero_power_glasses.png', to: '/products?category=zero-power', category: 'zero-power' },
-                { label: 'Reading', img: '/images/reading_book.png', to: '/products?category=reading-glasses', category: 'reading-glasses' },
-                { label: 'Power Sun', img: '/images/transition_lens.png', to: '/products?category=sunglasses&hasPower=true', category: 'sunglasses' }
-              ].map((item, idx) => (
-                <Link 
-                  key={idx} 
-                  to={item.to}
-                  onClick={(e) => handleCategoryClick(e, item.label, item.category)}
-                  className="relative bg-gradient-to-b from-[#111112] to-[#070708] border border-zinc-800/80 rounded-xl aspect-[1.35/1] overflow-hidden group shadow-md flex flex-col justify-end"
-                >
-                  <img 
-                    src={item.img} 
-                    alt={item.label} 
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
-                  />
-                  
-                  <div className="relative z-10 bg-gradient-to-t from-black/85 via-black/70 to-transparent pt-5 pb-1.5 px-1.5 flex flex-col items-center text-center justify-center">
-                    <span className="text-[8.5px] font-black text-white uppercase tracking-wider leading-none">{item.label}</span>
-                    <span className="text-[#D4A04D] text-[5.5px] font-bold uppercase mt-0.5 tracking-widest flex items-center justify-center gap-0.5">
-                      <span>Shop Now</span>
-                      <span>→</span>
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-        </main>
+        </div>
       </div> {/* END MOBILE LAYOUT */}
       {/* ================= SHARED PAGE CONTENT ================= */}
-      <main className="w-full px-4 sm:px-6 md:px-12 lg:px-16 py-6 flex flex-col gap-10 pb-24 md:pb-6">
+      <div className="w-full py-6 flex flex-col gap-10 pb-24 md:pb-6">
         {/* Featured Products Section - Full View */}
         <section className="flex flex-col gap-6 w-full py-4 border-t border-[#1C1C1E]">
           <div className="flex items-center justify-between">
@@ -1786,7 +1462,7 @@ export default function LandingPage() {
         </section>
 
 
-      </main> {/* END SHARED PAGE CONTENT */}
+      </div> {/* END SHARED PAGE CONTENT */}
 
         {/* Mobile Bottom Navigation Bar */}
         <nav className="fixed bottom-0 md:hidden left-0 right-0 bg-[#0A0A0A]/95 border-t border-[#1C1C1E] h-18 z-30 flex items-center justify-between px-3 backdrop-blur-md pb-safe">
@@ -1800,10 +1476,20 @@ export default function LandingPage() {
           </Link>
 
           {/* Wishlist */}
-          <Link to="/wishlist" className="flex flex-col items-center justify-center flex-1 gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors">
-            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
+          <Link 
+            to="/wishlist" 
+            className="flex flex-col items-center justify-center flex-1 gap-1 text-gray-500 hover:text-[#D4A04D] transition-colors relative"
+          >
+            <div className="relative">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              {wishlist && wishlist.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#D4A04D] text-black font-extrabold text-[7px] w-3 h-3 rounded-full flex items-center justify-center border border-[#0B0B0C]">
+                  {wishlist.length}
+                </span>
+              )}
+            </div>
             <span className="text-[8px] font-bold uppercase tracking-wider">WISHLIST</span>
           </Link>
 
@@ -1844,100 +1530,6 @@ export default function LandingPage() {
           </button>
 
         </nav>
-
-      {/* Mobile Menu Sidebar Drawer */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex justify-start md:hidden">
-          {/* Overlay */}
-          <div onClick={() => setIsMobileMenuOpen(false)} className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-          
-          {/* Sidebar Panel */}
-          <div className="relative w-64 bg-[#0E0E0E] h-full shadow-2xl border-r border-[#2A2A2D] flex flex-col z-50 animate-fade-in p-6">
-            <div className="flex items-center justify-between mb-8">
-              <Link to="/" className="flex flex-col select-none" onClick={() => setIsMobileMenuOpen(false)}>
-                <span className="text-[#D4A04D] font-serif text-lg tracking-[0.2em] uppercase font-bold">EYEGLAZE</span>
-                <span className="text-[#D4A04D]/80 font-sans text-[7px] tracking-[0.3em] uppercase mt-0.5">EYEWEAR</span>
-              </Link>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white p-1 cursor-pointer">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l18 18" />
-                </svg>
-              </button>
-            </div>
-
-
-
-            {/* Mobile Drawer "My Space" (if user logged in) */}
-            {user && (
-              <div className="mt-6 space-y-3">
-                <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-1 select-none">
-                  My Space
-                </div>
-                <nav className="flex flex-col gap-2">
-                  {[
-                    { href: '/profile', label: 'My Profile', icon: '👤' },
-                    { href: '/saved-powers', label: 'Saved Powers', icon: '👓' },
-                    { href: '/orders', label: 'My Orders', icon: '📦' },
-                    { href: '/wishlist', label: 'My Wishlist', icon: '❤️' },
-                    { href: '/membership', label: 'Gold Membership', icon: '👑' },
-                    { href: '/payments', label: 'Payment History', icon: '💳' },
-                    { href: '/wallet', label: 'My Wallet', icon: '👛' },
-                  ].map(({ href, label, icon }) => (
-                    <Link
-                      key={href}
-                      to={href}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex items-center gap-3 text-gray-400 hover:text-[#D4A04D] text-xs font-semibold py-1.5 transition-colors px-1"
-                    >
-                      <BrandIcon name={icon} className="w-4 h-4 text-[#D4A04D]" />
-                      <span>{label}</span>
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-            )}
-            
-            {/* Account info in Drawer */}
-            <div className="mt-auto pt-6 border-t border-[#1C1C1E] flex flex-col gap-4">
-              {user ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#D4A04D] to-[#8b6524] text-black font-extrabold rounded-full flex items-center justify-center text-xs uppercase">
-                      {user.name ? user.name[0] : 'U'}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-white text-xs font-bold truncate max-w-[100px]">{user.name}</span>
-                      {user.membershipActive && (
-                        <span className="inline-flex items-center gap-0.5 text-[8px] text-[#D4A04D] font-extrabold uppercase mt-0.5">
-                          <BrandIcon name="👑" className="w-2.5 h-2.5 text-[#D4A04D]" /> Gold
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      setIsMobileMenuOpen(false);
-                      await logout();
-                      navigate('/');
-                    }}
-                    className="text-red-400 hover:text-red-300 text-xs font-bold uppercase transition-colors bg-transparent border-none cursor-pointer"
-                  >
-                    Logout
-                  </button>
-                </div>
-              ) : (
-                <Link 
-                  to="/login" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="w-full text-center bg-[#D4A04D] hover:bg-[#C8923E] text-black font-extrabold text-xs uppercase py-3 rounded-lg tracking-wider transition-colors"
-                >
-                  Login / Signup
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Interactive overlays & modals */}
 
@@ -2723,7 +2315,8 @@ export default function LandingPage() {
                   key={shape.slug}
                   onClick={() => {
                     setIsShapeModalOpen(false);
-                    navigate(`/products?category=${shapeModalCategory}&shape=${shape.slug}`);
+                    const genderParam = shapeModalGender ? `&gender=${shapeModalGender}` : '';
+                    navigate(`/products?category=${shapeModalCategory}&shape=${shape.slug}${genderParam}`);
                   }}
                   className="bg-[#18181A] border border-zinc-800 rounded-xl p-4 flex flex-col items-center justify-center text-center gap-3 hover:border-[#D4A04D]/60 hover:shadow-[0_0_15px_rgba(212,160,77,0.08)] transition-all duration-300 group cursor-pointer"
                 >
@@ -2741,7 +2334,8 @@ export default function LandingPage() {
             <button
               onClick={() => {
                 setIsShapeModalOpen(false);
-                navigate(`/products?category=${shapeModalCategory}`);
+                const genderParam = shapeModalGender ? `&gender=${shapeModalGender}` : '';
+                navigate(`/products?category=${shapeModalCategory}${genderParam}`);
               }}
               className="w-full mt-2 bg-transparent border border-zinc-800 hover:border-zinc-700 text-white font-extrabold text-[10px] uppercase py-3 rounded-xl tracking-wider transition-all cursor-pointer"
             >
@@ -2751,7 +2345,6 @@ export default function LandingPage() {
         </div>
       )}
 
-      <Footer />
     </div>
   );
 }

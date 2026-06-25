@@ -20,6 +20,7 @@ import couponsRoutes from './routes/coupons.routes';
 import wishlistRoutes from './routes/wishlist.routes';
 import ticketsRoutes from './routes/tickets.routes';
 import cashbackCampaignsRoutes from './routes/cashbackCampaigns.routes';
+import categoriesRoutes from './routes/categories.routes';
 
 import adminProductsRoutes from './routes/admin/products.routes';
 import adminInventoryRoutes from './routes/admin/inventory.routes';
@@ -147,6 +148,7 @@ app.use('/api/lens-options', lensOptionsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/homepage-videos', homepageVideosRoutes);
 app.use('/api/cashback-campaigns', cashbackCampaignsRoutes);
+app.use('/api/categories', categoriesRoutes);
 
 // Auth-required routes
 app.use('/api/cart', requireAuth, cartRoutes);

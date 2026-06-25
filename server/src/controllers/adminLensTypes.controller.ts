@@ -4,7 +4,12 @@ import { Lens } from '../models/Lens';
 
 export const getLensTypes = async (req: Request, res: Response) => {
   try {
-    const lensTypes = await LensType.find().sort({ createdAt: -1 });
+    const { category } = req.query;
+    const filter: any = {};
+    if (category) {
+      filter.category = category;
+    }
+    const lensTypes = await LensType.find(filter).sort({ createdAt: -1 });
     
     // Aggregate lens counts
     const lensCounts = await Lens.aggregate([
@@ -27,12 +32,12 @@ export const getLensTypes = async (req: Request, res: Response) => {
 
 export const createLensType = async (req: Request, res: Response) => {
   try {
-    const { name, status } = req.body;
-    const existing = await LensType.findOne({ name });
+    const { name, status, category = 'eyeglasses' } = req.body;
+    const existing = await LensType.findOne({ name, category });
     if (existing) {
-      return res.status(400).json({ message: 'Lens Type name must be unique' });
+      return res.status(400).json({ message: 'Lens Type name must be unique within a category' });
     }
-    const newLensType = new LensType({ name, status });
+    const newLensType = new LensType({ name, status, category });
     await newLensType.save();
     res.status(201).json({ lensType: newLensType });
   } catch (error) {
@@ -44,12 +49,12 @@ export const createLensType = async (req: Request, res: Response) => {
 export const updateLensType = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, status } = req.body;
-    const existing = await LensType.findOne({ name, _id: { $ne: id } });
+    const { name, status, category } = req.body;
+    const existing = await LensType.findOne({ name, category, _id: { $ne: id } });
     if (existing) {
-      return res.status(400).json({ message: 'Lens Type name must be unique' });
+      return res.status(400).json({ message: 'Lens Type name must be unique within a category' });
     }
-    const updated = await LensType.findByIdAndUpdate(id, { name, status }, { new: true });
+    const updated = await LensType.findByIdAndUpdate(id, { name, status, category }, { new: true });
     if (!updated) return res.status(404).json({ message: 'Lens Type not found' });
     res.json({ lensType: updated });
   } catch (error) {

@@ -18,11 +18,9 @@ const GENDERS = [
 
 const SHAPES = ['Aviator', 'Rectangle', 'Round', 'Oval', 'Cat Eye', 'Geometric', 'Clubmaster'];
 const SIZES = ['Small', 'Medium', 'Large'];
-const BRANDS = ['Vincent Chase', 'John Jacobs', 'Hustlr', 'Lenskart Air'];
 const COLORS = ['Black', 'Brown', 'Gold', 'Silver', 'Transparent', 'Pink'];
 const TYPES = ['Full Rim', 'Half Rim', 'Rimless'];
 const MATERIALS = ['Metal', 'Acetate', 'TR90', 'Titanium'];
-const WEIGHTS = ['Lightweight', 'Medium', 'Heavy'];
 const FACESHAPES = ['Round', 'Oval', 'Square', 'Diamond'];
 
 export default function ProductFilters() {
@@ -263,31 +261,6 @@ export default function ProductFilters() {
         )}
       </div>
 
-      {/* Brand Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Brand', 'brand')}
-        {openSections.brand && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {BRANDS.map(brand => {
-              const activeBrands = searchParams.get('brand')?.split(',') || [];
-              const isChecked = activeBrands.includes(brand);
-              return (
-                <label key={brand} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleFilter('brand', brand)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {brand}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
       {/* Color Section */}
       <div className="border-b border-[#2A2A2D]/40 pb-2">
@@ -379,31 +352,6 @@ export default function ProductFilters() {
         )}
       </div>
 
-      {/* Weight Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Weight', 'weight')}
-        {openSections.weight && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {WEIGHTS.map(weight => {
-              const activeWeights = searchParams.get('weight')?.split(',') || [];
-              const isChecked = activeWeights.includes(weight);
-              return (
-                <label key={weight} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleFilter('weight', weight)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 rounded cursor-pointer border-[#2A2A2D] bg-[#0B0B0C]"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {weight}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
       {/* Face Shape Section */}
       <div className="border-b border-[#2A2A2D]/40 pb-2">
@@ -458,42 +406,6 @@ export default function ProductFilters() {
         )}
       </div>
 
-      {/* Rating Section */}
-      <div className="pb-1">
-        {renderSectionHeader('Rating Filter', 'rating')}
-        {openSections.rating && (
-          <div className="mt-2.5 space-y-2 animate-fade-in">
-            {[
-              { value: '4', label: '★ 4.0 & above' },
-              { value: '4.5', label: '★ 4.5 & above' },
-            ].map(rat => {
-              const isChecked = searchParams.get('rating') === rat.value;
-              return (
-                <label key={rat.value} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="radio"
-                    name="rating"
-                    checked={isChecked}
-                    onChange={() => updateSingleFilter('rating', rat.value)}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-white font-bold' : ''}`}>
-                    {rat.label}
-                  </span>
-                </label>
-              );
-            })}
-            {searchParams.get('rating') && (
-              <button
-                onClick={() => updateSingleFilter('rating', '')}
-                className="text-[#D4A04D] text-[10px] font-extrabold uppercase mt-2 hover:underline bg-transparent border-none cursor-pointer"
-              >
-                Clear Rating
-              </button>
-            )}
-          </div>
-        )}
-      </div>
 
     </div>
   );

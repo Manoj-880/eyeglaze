@@ -18,6 +18,8 @@ export async function getProducts(req: Request, res: Response) {
     await connectDB();
 
     const category = req.query.category as string | undefined;
+    const subCategory = req.query.subCategory as string | undefined;
+    const subCategoryId = req.query.subCategoryId as string | undefined;
     const search = req.query.search as string | undefined;
     const sort = (req.query.sort as string) || 'newest';
     const page = parseInt((req.query.page as string) || '1');
@@ -30,8 +32,22 @@ export async function getProducts(req: Request, res: Response) {
     const andConditions: any[] = [];
 
     if (category) {
-      const normalized = category === 'bluelight' ? 'blue_light' : category === 'contact' ? 'contact_lenses' : category;
+      const normalized = category === 'bluelight' ? 'blue_light' : (category === 'contact' || category === 'contact-lenses' || category === 'contact_lenses') ? 'contact_lenses' : category;
       andConditions.push({ $or: [{ category: normalized }, { categories: normalized }] });
+    }
+
+    if (subCategory) {
+      const subRegex = new RegExp(`^${subCategory.replace(/-/g, ' ')}$|^${subCategory}$`, 'i');
+      andConditions.push({
+        $or: [
+          { subCategory: { $regex: subRegex } },
+          { subCategory: subCategory }
+        ]
+      });
+    }
+
+    if (subCategoryId) {
+      andConditions.push({ subCategoryId: subCategoryId });
     }
 
     if (search) {
@@ -63,11 +79,12 @@ export async function getProducts(req: Request, res: Response) {
 
     const shapes = parseCommaParam(req.query.shape);
     if (shapes) {
+      const shapeRegexes = shapes.map(s => new RegExp(`^${s}$`, 'i'));
       andConditions.push({
         $or: [
-          { shape: { $in: shapes } },
-          { 'frame.type': { $in: shapes } },
-          { frameType: { $in: shapes } },
+          { shape: { $in: shapeRegexes } },
+          { 'frame.type': { $in: shapeRegexes } },
+          { frameType: { $in: shapeRegexes } },
         ],
       });
     }
@@ -92,11 +109,12 @@ export async function getProducts(req: Request, res: Response) {
       const shapeList = ['Square', 'Round', 'Clubmaster', 'Aviator', 'Wayfarer', 'Cat Eye', 'Hexagonal', 'Rectangle', 'Oval', 'Geometric'];
       const hasLegacyShapes = frameTypes.some(t => shapeList.includes(t));
       if (hasLegacyShapes) {
+        const frameTypesRegexes = frameTypes.map(t => new RegExp(`^${t}$`, 'i'));
         andConditions.push({
           $or: [
-            { shape: { $in: frameTypes } },
-            { 'frame.type': { $in: frameTypes } },
-            { frameType: { $in: frameTypes } },
+            { shape: { $in: frameTypesRegexes } },
+            { 'frame.type': { $in: frameTypesRegexes } },
+            { frameType: { $in: frameTypesRegexes } },
           ],
         });
       } else {
@@ -131,7 +149,8 @@ export async function getProducts(req: Request, res: Response) {
 
     const genders = parseCommaParam(req.query.gender);
     if (genders) {
-      andConditions.push({ gender: { $in: genders } });
+      const genderRegexes = genders.map(g => new RegExp(`^${g}$`, 'i'));
+      andConditions.push({ gender: { $in: genderRegexes } });
     }
 
     const isPremium = req.query.isPremium as string | undefined;

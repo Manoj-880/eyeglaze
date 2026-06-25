@@ -10,6 +10,7 @@ import { NavigationMenu } from '../../models/NavigationMenu';
 import { AuditLog } from '../../models/AuditLog';
 import { User } from '../../models/User';
 import mongoose from 'mongoose';
+import { getIO } from '../../lib/socket';
 
 const ADMIN_ROLES = ['admin', 'store_manager'];
 
@@ -51,7 +52,8 @@ export async function getCategories(req: Request, res: Response) {
 
     if (type) {
       const model = getModelByType(type);
-      items = await model.find(query).sort({ displayOrder: 1, name: 1 }).skip(skip).limit(limit).lean();
+      const docs = await model.find(query).sort({ displayOrder: 1, name: 1 }).skip(skip).limit(limit).lean();
+      items = docs.map((d) => ({ ...d, type }));
       total = await model.countDocuments(query);
     } else {
       // Gather Category and SubCategory if no type is passed
@@ -188,12 +190,108 @@ export async function createCategory(req: Request, res: Response) {
 
     // Check slug and code uniqueness
     const existingSlug = await model.findOne({ slug });
-    if (existingSlug) {
+    if (existingSlug && !existingSlug.isDeleted) {
       return res.status(400).json({ error: `Slug '${slug}' already exists for type ${type}` });
     }
     const existingCode = await model.findOne({ code: basic.code });
-    if (existingCode) {
+    if (existingCode && !existingCode.isDeleted) {
       return res.status(400).json({ error: `Code '${basic.code}' already exists for type ${type}` });
+    }
+
+    const deletedDoc = (existingSlug?.isDeleted ? existingSlug : null) || (existingCode?.isDeleted ? existingCode : null);
+
+    if (deletedDoc) {
+      const targetId = deletedDoc._id;
+      const docData: Record<string, any> = {
+        name: basic.name,
+        slug,
+        code: basic.code,
+        description: basic.description,
+        displayOrder: basic.displayOrder || 0,
+        status: basic.status || 'Active',
+        isDeleted: false,
+        deletedAt: null,
+      };
+
+      if (type === 'Category') {
+        docData.icon = basic.icon;
+        docData.bannerImage = basic.bannerImage;
+        docData.parentCategory = undefined;
+        docData.isActive = docData.status === 'Active';
+      } else if (type === 'SubCategory') {
+        if (!hierarchy?.categoryId) {
+          return res.status(400).json({ error: 'categoryId hierarchy reference is required for SubCategory' });
+        }
+        docData.categoryId = hierarchy.categoryId;
+      }
+
+      const updatedDoc = await model.findByIdAndUpdate(targetId, { $set: docData }, { returnDocument: 'after' });
+
+      const [attrDoc, filterDoc, seoDoc] = await Promise.all([
+        CategoryAttribute.findOneAndUpdate(
+          { targetId, targetType: type },
+          {
+            $set: {
+              genders: attributes?.genders || [],
+              ageGroups: attributes?.ageGroups || [],
+              usageTypes: attributes?.usageTypes || [],
+              faceShapes: attributes?.faceShapes || [],
+              occasions: attributes?.occasions || [],
+            },
+          },
+          { upsert: true, returnDocument: 'after' }
+        ),
+
+        CategoryFilter.findOneAndUpdate(
+          { targetId, targetType: type },
+          {
+            $set: {
+              enabledFilters: filters || {
+                brand: true,
+                price: true,
+                color: true,
+                frameShape: true,
+                frameMaterial: true,
+                frameWidth: true,
+                lensType: true,
+                weight: true,
+                features: true,
+                faceShape: true,
+              }
+            }
+          },
+          { upsert: true, returnDocument: 'after' }
+        ),
+
+        CategorySeo.findOneAndUpdate(
+          { targetId, targetType: type },
+          {
+            $set: {
+              seoTitle: seo?.seoTitle || basic.name,
+              metaDescription: seo?.metaDescription || basic.description || '',
+              keywords: seo?.keywords || '',
+              canonicalUrl: seo?.canonicalUrl || '',
+              slug: seo?.slug || slug,
+              ogImage: seo?.ogImage || basic.bannerImage || '',
+            },
+          },
+          { upsert: true, returnDocument: 'after' }
+        ),
+      ]);
+
+      const userObj = await User.findById(req.user.userId);
+      const audit = new AuditLog({
+        action: 'restore',
+        targetId,
+        targetType: type,
+        performedBy: req.user.userId,
+        performedByName: userObj?.name || userObj?.email || 'Admin User',
+        changes: { type, basic, hierarchy, attributes, filters, seo },
+        version: 2,
+      });
+      await audit.save();
+
+      return res.status(201).json({ category: updatedDoc, attributes: attrDoc, filters: filterDoc, seo: seoDoc });
     }
 
     // Prepare tier document
@@ -277,6 +375,8 @@ export async function createCategory(req: Request, res: Response) {
       version: 1,
     });
     await audit.save();
+
+    getIO().emit('category_changed', { action: 'create', category: newDoc });
 
     return res.status(201).json({ category: newDoc, attributes: attrDoc, filters: filterDoc, seo: seoDoc });
   } catch (error: any) {
@@ -384,6 +484,8 @@ export async function updateCategory(req: Request, res: Response) {
     });
     await audit.save();
 
+    getIO().emit('category_changed', { action: 'update', category: updatedDoc });
+
     return res.status(200).json({ category: updatedDoc });
   } catch (error: any) {
     console.error('UPDATE category error:', error);
@@ -433,6 +535,8 @@ export async function deleteCategory(req: Request, res: Response) {
     });
     await audit.save();
 
+    getIO().emit('category_changed', { action: 'delete', id });
+
     return res.status(200).json({ success: true });
   } catch (error: any) {
     console.error('DELETE category error:', error);
@@ -470,6 +574,8 @@ export async function restoreCategory(req: Request, res: Response) {
       version: 1,
     });
     await audit.save();
+
+    getIO().emit('category_changed', { action: 'restore', id });
 
     return res.status(200).json({ success: true });
   } catch (error: any) {
@@ -564,6 +670,8 @@ export async function duplicateCategory(req: Request, res: Response) {
       version: 1,
     });
     await audit.save();
+
+    getIO().emit('category_changed', { action: 'duplicate', category: newDoc });
 
     return res.status(201).json({ category: newDoc });
   } catch (error: any) {
@@ -667,6 +775,10 @@ export async function importCategoriesFromCSV(req: Request, res: Response) {
       } catch (err: any) {
         skipped.push(`Row ${i + 1}: Error - ${err.message}`);
       }
+    }
+
+    if (importedCount > 0) {
+      getIO().emit('category_changed', { action: 'import' });
     }
 
     return res.status(200).json({ success: true, importedCount, skipped });

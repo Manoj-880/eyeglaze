@@ -33,7 +33,7 @@ export interface IProduct extends Document {
   frameType?: string;
   material?: string;
   brand?: string;
-  shape?: string;
+  shape?: string | string[];
   frameSize?: string;
   frameColor?: string;
   weight?: string;
@@ -55,7 +55,7 @@ export interface IProduct extends Document {
   discountPercent?: number;
   category: string;
   categories: string[];
-  gender?: 'men' | 'women' | 'kids' | 'unisex';
+  gender?: string | string[];
   compatible: {
     prescription: boolean;
     bluecut: boolean;
@@ -214,6 +214,13 @@ export interface IProduct extends Document {
   schemaMarkup?: string;
   imageAltText?: string;
 
+  // New fields for Special Power and Contacts
+  readingPowers?: string[];
+  contactPowers?: Array<{ power: string; price: number }>;
+  contactDisposableType?: string;
+  sellAsFrame?: boolean;
+  sellWithLens?: boolean;
+
   // Audit Logs Version Tracking
   currentVersion: number;
 
@@ -249,7 +256,10 @@ const ProductSchema = new Schema<IProduct>(
     frameType: { type: String },
     material: { type: String },
     brand: { type: String },
-    shape: { type: String },
+    shape: {
+      type: [String],
+      default: [],
+    },
     frameSize: { type: String },
     frameColor: { type: String },
     weight: { type: String },
@@ -275,9 +285,8 @@ const ProductSchema = new Schema<IProduct>(
     },
     categories: [String],
     gender: {
-      type: String,
-      enum: ['men', 'women', 'kids', 'unisex'],
-      default: 'unisex',
+      type: [String],
+      default: ['unisex'],
     },
     compatible: {
       prescription: { type: Boolean, default: false },
@@ -461,6 +470,18 @@ const ProductSchema = new Schema<IProduct>(
     openGraphDescription: { type: String },
     schemaMarkup: { type: String },
     imageAltText: { type: String },
+
+    // New fields for Special Power and Contacts
+    readingPowers: [{ type: String }],
+    contactPowers: [
+      {
+        power: { type: String },
+        price: { type: Number }
+      }
+    ],
+    contactDisposableType: { type: String },
+    sellAsFrame: { type: Boolean, default: true },
+    sellWithLens: { type: Boolean, default: true },
 
     currentVersion: { type: Number, default: 1 },
   },

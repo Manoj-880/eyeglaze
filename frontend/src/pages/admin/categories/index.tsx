@@ -19,7 +19,7 @@ export default function CategoriesList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<string>('');
+  const [filterType] = useState<string>('Category');
   const [showTrash, setShowTrash] = useState(false);
 
   // Pagination
@@ -65,7 +65,7 @@ export default function CategoriesList() {
   const toggleStatus = async (item: CategoryItem) => {
     try {
       const nextStatus = item.status === 'Active' ? 'Inactive' : 'Active';
-      await api.put(`/admin/categories/${item.type}/${item._id}`, {
+      await api.put(`/admin/categories/${item.type || 'Category'}/${item._id}`, {
         basic: { name: item.name, code: item.code, status: nextStatus, slug: item.slug }
       });
       fetchCategories();
@@ -77,7 +77,7 @@ export default function CategoriesList() {
   const handleDelete = async (item: CategoryItem) => {
     if (!confirm(`Soft delete ${item.name}?`)) return;
     try {
-      await api.delete(`/admin/categories/${item.type}/${item._id}`);
+      await api.delete(`/admin/categories/${item.type || 'Category'}/${item._id}`);
       fetchCategories();
     } catch {
       setError('Failed to delete.');
@@ -86,7 +86,7 @@ export default function CategoriesList() {
 
   const handleRestore = async (item: CategoryItem) => {
     try {
-      await api.put(`/admin/categories/${item.type}/${item._id}/restore`);
+      await api.put(`/admin/categories/${item.type || 'Category'}/${item._id}/restore`);
       fetchCategories();
     } catch {
       setError('Failed to restore.');
@@ -95,7 +95,7 @@ export default function CategoriesList() {
 
   const handleDuplicate = async (item: CategoryItem) => {
     try {
-      await api.post(`/admin/categories/${item.type}/${item._id}/duplicate`);
+      await api.post(`/admin/categories/${item.type || 'Category'}/${item._id}/duplicate`);
       fetchCategories();
     } catch {
       setError('Failed to duplicate.');
@@ -139,9 +139,6 @@ export default function CategoriesList() {
           <p className="text-xs text-gray-500 font-semibold">Organize eyewear product catalog hierarchies dynamically</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => navigate('/admin/categories/tree')} className="bg-[#18181A] hover:bg-zinc-800 border border-zinc-700 text-[#D4A04D] font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer">
-            🌲 Tree View
-          </button>
           <button onClick={() => navigate('/admin/categories/menu-builder')} className="bg-[#18181A] hover:bg-zinc-800 border border-zinc-700 text-[#D4A04D] font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer">
             🛠️ Menu Builder
           </button>
@@ -153,22 +150,6 @@ export default function CategoriesList() {
 
       {/* CSV, Filters, Search tools */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Type tabs */}
-        <div className="flex gap-1 bg-[#131314] p-1 border border-[#2A2A2D] rounded-xl text-[10px] font-extrabold uppercase tracking-widest w-fit">
-          {[
-            { value: '', label: 'All Tiers' },
-            { value: 'Category', label: 'Main Category' },
-            { value: 'SubCategory', label: 'Sub Category' }
-          ].map(t => (
-            <button
-              key={t.value}
-              onClick={() => setFilterType(t.value)}
-              className={`px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors ${filterType === t.value ? 'bg-[#D4A04D] text-black' : 'bg-transparent text-gray-400 hover:text-white'}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
 
         {/* Trash / Active toggler */}
         <div className="flex gap-2 text-xs font-bold">
@@ -206,9 +187,7 @@ export default function CategoriesList() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[#A7A7A7] text-[10px] font-extrabold uppercase tracking-wider border-b border-[#2A2A2D] bg-[#1A1A1C]">
-                  <th className="text-left px-5 py-3">Code</th>
                   <th className="text-left px-5 py-3">Name</th>
-                  <th className="text-left px-5 py-3">Hierarchy level</th>
                   <th className="text-left px-5 py-3">Sort Order</th>
                   <th className="text-left px-5 py-3">Status</th>
                   <th className="text-left px-5 py-3">Actions</th>
@@ -217,18 +196,18 @@ export default function CategoriesList() {
               <tbody className="divide-y divide-[#2A2A2D]/40">
                 {items.map(item => (
                   <tr key={item._id} className="hover:bg-[#1C1C1E] transition-colors">
-                    <td className="px-5 py-4 font-mono text-xs font-bold text-[#D4A04D]">{item.code}</td>
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-white">{item.name}</div>
+                      {item.slug !== 'contact-lenses' && item.slug !== 'contact_lenses' && item.slug !== 'accessories' ? (
+                        <button
+                          onClick={() => navigate(`/admin/lenses?category=${item.slug}`)}
+                          className="font-semibold text-white hover:text-[#D4A04D] hover:underline text-left bg-transparent border-none p-0 cursor-pointer"
+                        >
+                          {item.name}
+                        </button>
+                      ) : (
+                        <div className="font-semibold text-white">{item.name}</div>
+                      )}
                       <div className="text-[10px] text-gray-500 font-mono mt-0.5">{item.slug}</div>
-                    </td>
-                    <td className="px-5 py-4 text-xs">
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
-                        item.type === 'Category' ? 'bg-blue-500/10 text-blue-400' :
-                        'bg-purple-500/10 text-purple-400'
-                      }`}>
-                        {item.type}
-                      </span>
                     </td>
                     <td className="px-5 py-4 text-xs font-semibold">{item.displayOrder}</td>
                     <td className="px-5 py-4">
@@ -247,7 +226,15 @@ export default function CategoriesList() {
                       <div className="flex gap-3 text-xs font-bold">
                         {!item.isDeleted ? (
                           <>
-                            <button onClick={() => navigate(`/admin/categories/edit/${item.type}/${item._id}`)} className="text-[#D4A04D] hover:underline bg-transparent border-none cursor-pointer">Edit</button>
+                            {item.slug !== 'contact-lenses' && item.slug !== 'contact_lenses' && item.slug !== 'accessories' && (
+                              <button
+                                onClick={() => navigate(`/admin/lenses?category=${item.slug}`)}
+                                className="text-[#D4A04D] hover:underline bg-transparent border-none cursor-pointer"
+                              >
+                                Manage Lenses
+                              </button>
+                            )}
+                            <button onClick={() => navigate(`/admin/categories/edit/${item.type || 'Category'}/${item._id}`)} className="text-gray-400 hover:underline bg-transparent border-none cursor-pointer">Edit</button>
                             <button onClick={() => handleDuplicate(item)} className="text-gray-400 hover:underline bg-transparent border-none cursor-pointer">Duplicate</button>
                             <button onClick={() => handleDelete(item)} className="text-red-400 hover:underline bg-transparent border-none cursor-pointer">Delete</button>
                           </>
@@ -258,9 +245,9 @@ export default function CategoriesList() {
                     </td>
                   </tr>
                 ))}
-                {items.length === 0 && (
+                 {items.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center text-gray-500 py-16 italic text-xs">No elements found</td>
+                    <td colSpan={4} className="text-center text-gray-500 py-16 italic text-xs">No elements found</td>
                   </tr>
                 )}
               </tbody>

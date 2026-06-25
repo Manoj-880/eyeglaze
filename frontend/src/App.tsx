@@ -67,9 +67,8 @@ export default function App() {
       <BrowserRouter>
         <ScrollToTop />
         <Routes>
-          <Route path="/" element={<Landing />} />
-
           <Route element={<UserLayout />}>
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/login/otp" element={<LoginOtp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />

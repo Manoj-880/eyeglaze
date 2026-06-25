@@ -18,6 +18,7 @@ interface CartItem {
   qty: number;
   image?: string;
   lensPayload?: any;
+  power?: any;
   product?: any;
 }
 
@@ -110,6 +111,7 @@ export default function CartPage() {
           qty: item.qty,
           image: item.product?.images?.[0] || item.image || '',
           product: item.product,
+          power: item.power,
         }));
         setItems(mapped);
       })
@@ -329,6 +331,12 @@ export default function CartPage() {
                 <div className="text-[#A7A7A7] text-sm mt-1">{item.sku} · {item.color}</div>
                 {item.lens && (
                   <div className="text-[#A7A7A7] text-xs mt-1">Lens: {item.lens}</div>
+                )}
+                {item.power && (item.power.RE?.sph !== undefined || item.power.LE?.sph !== undefined) && (
+                  <div className="text-[#D4A04D] text-xs mt-0.5 font-bold">
+                    Power: {item.power.RE?.sph !== undefined ? `RE: ${item.power.RE.sph > 0 ? '+' : ''}${item.power.RE.sph}` : ''}
+                    {item.power.LE?.sph !== undefined && item.power.LE?.sph !== item.power.RE?.sph ? ` · LE: ${item.power.LE.sph > 0 ? '+' : ''}${item.power.LE.sph}` : ''}
+                  </div>
                 )}
                 <div className="flex items-center gap-4 mt-3">
                   <div className="flex items-center gap-2">
