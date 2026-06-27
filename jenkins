@@ -1,13 +1,17 @@
 pipeline {
- 
+
     agent any
- 
+
     environment {
         ROCKETCHAT_WEBHOOK = credentials('eyeglaze-rocketchat-webhook')
     }
- 
+
+    options {
+        timestamps()
+    }
+
     stages {
- 
+
         stage('Notify Start') {
             steps {
                 sh """
@@ -18,110 +22,145 @@ pipeline {
                 """
             }
         }
- 
+
         stage('Deploy') {
+
             steps {
+
                 sshagent(['ec2-ssh']) {
- 
+
                     sh '''
 ssh -o StrictHostKeyChecking=no root@web.eyeglaze.in << 'EOF'
-set -e
- 
+
+set -euxo pipefail
+
+echo "=============================="
+echo "SERVER MEMORY"
+free -h
+echo "=============================="
+
+echo "DISK"
+df -h
+echo "=============================="
+
 cd /root/eyeglaze
- 
-echo "Pulling latest code..."
-git pull origin main
- 
-echo "Building backend..."
+
+echo "Pull latest code..."
+git fetch origin
+git reset --hard origin/main
+
+############################
+# Backend
+############################
+
 cd server
-npm install
+
+echo "Installing backend packages..."
+npm ci
+
+echo "Building backend..."
+
+export NODE_OPTIONS="--max-old-space-size=2048"
+
 npm run build
- 
-echo "Restarting PM2..."
+
+echo "Restart backend"
+
 pm2 restart backend
- 
-echo "Building frontend..."
+
+############################
+# Frontend
+############################
+
 cd ../frontend
-npm install
+
+echo "Installing frontend packages..."
+
+npm ci
+
+echo "Building frontend..."
+
 npm run build
- 
-echo "Removing old frontend files..."
+
+echo "Deploy frontend..."
+
 rm -rf /var/www/eyeglaze/*
- 
-echo "Copying new dist files..."
+
 cp -r dist/* /var/www/eyeglaze/
- 
-echo "Restarting Nginx..."
+
 systemctl restart nginx
- 
-echo "Deployment completed successfully."
- 
+
+echo "Deployment completed."
+
 EOF
 '''
                 }
+
             }
+
         }
+
     }
- 
+
     post {
- 
+
         success {
- 
+
             sh """
             curl -X POST \
             -H "Content-Type: application/json" \
-            -d '{"text":"✅ Eyeglaze Deployment Success | Build #${BUILD_NUMBER} | ${BUILD_URL}"}' \
+            -d '{"text":"✅ Eyeglaze Deployment Success | Build #${BUILD_NUMBER}\\n${BUILD_URL}"}' \
             "${ROCKETCHAT_WEBHOOK}"
             """
- 
+
             emailext(
                 subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """
-Deployment Successful.
- 
+Deployment Successful
+
 Job Name: ${env.JOB_NAME}
 Build Number: ${env.BUILD_NUMBER}
- 
+
 Build URL:
 ${env.BUILD_URL}
 """,
                 to: "speshway17@gmail.com"
             )
         }
- 
+
         failure {
- 
+
             script {
- 
-                def errorLogs = currentBuild.rawBuild.getLog(20).join("\\n")
+
+                def errorLogs = currentBuild.rawBuild.getLog(100).join("\\n")
                 errorLogs = errorLogs
                     .replace("\\", "\\\\")
                     .replace("\"", "\\\"")
                     .replace("\n", "\\n")
- 
+
                 writeFile file: 'rocketchat.json', text: """
 {
-"text":"❌ Eyeglaze Deployment Failed | Build #${BUILD_NUMBER}\\n\\nReason:\\n${errorLogs}\\n\\nConsole Logs:\\n${BUILD_URL}console"
+"text":"❌ Eyeglaze Deployment Failed | Build #${BUILD_NUMBER}\\n\\nLast Logs:\\n${errorLogs}\\n\\nConsole:\\n${BUILD_URL}console"
 }
 """
             }
- 
+
             sh '''
-            curl -X POST \
-            -H "Content-Type: application/json" \
-            --data @rocketchat.json \
-            "$ROCKETCHAT_WEBHOOK"
-            '''
- 
+curl -X POST \
+-H "Content-Type: application/json" \
+--data @rocketchat.json \
+"$ROCKETCHAT_WEBHOOK"
+'''
+
             emailext(
                 subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: """
-Deployment Failed.
- 
+Deployment Failed
+
 Job Name: ${env.JOB_NAME}
 Build Number: ${env.BUILD_NUMBER}
- 
-Console Logs:
+
+Console:
 ${env.BUILD_URL}console
 """,
                 to: "speshway17@gmail.com"
