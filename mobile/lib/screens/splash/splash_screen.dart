@@ -18,31 +18,35 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
   late AnimationController _controller;
 
-  // Selection of premium network image URLs focusing strictly on eyes and spectacles
+  // Selection of premium network image URLs focusing strictly on product spectacles photography
   final List<List<String>> _columnImages = [
+    // Column 0
     [
-      'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?q=80&w=300',
-      'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=300',
-      'https://images.unsplash.com/photo-1509695507497-903c140c43b0?q=80&w=300',
-      'https://images.unsplash.com/photo-1591076482161-42ce6da69f67?q=80&w=300',
+      'https://images.unsplash.com/photo-1574258495973-f010dfbb5371?q=80&w=300', // Classic round wire spectacles
+      'https://images.unsplash.com/photo-1591076482161-42ce6da69f67?q=80&w=300', // Modern clear spectacles
+      'https://images.unsplash.com/photo-1577803645773-f96470509666?q=80&w=300', // Acetate frame flatlay
+      'https://images.unsplash.com/photo-1508296695146-257a814070b4?q=80&w=300', // Tortoiseshell spectacles
     ],
+    // Column 1
     [
-      'https://images.unsplash.com/photo-1511499767150-a48a237f0083?q=80&w=300',
-      'https://images.unsplash.com/photo-1508296695146-257a814070b4?q=80&w=300',
-      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?q=80&w=300',
-      'https://images.unsplash.com/photo-1502764613149-7f1d229fe230?q=80&w=300',
+      'https://images.unsplash.com/photo-1511499767150-a48a237f0083?q=80&w=300', // Designer spectacles mockup
+      'https://images.unsplash.com/photo-1509695507497-903c140c43b0?q=80&w=300', // Metal wireframe spectacles
+      'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?q=80&w=300', // Multi frame display
+      'https://images.unsplash.com/photo-1502764613149-7f1d229fe230?q=80&w=300', // Classic black optical frames
     ],
+    // Column 2
     [
-      'https://images.unsplash.com/photo-1473496169904-658ba7c44d8a?q=80&w=300',
-      'https://images.unsplash.com/photo-1511556820780-d912e42b4980?q=80&w=300',
-      'https://images.unsplash.com/photo-1582533561751-ef6f6ab93a2e?q=80&w=300',
-      'https://images.unsplash.com/photo-1504701954957-2390f80649b6?q=80&w=300',
+      'https://images.unsplash.com/photo-1582533561751-ef6f6ab93a2e?q=80&w=300', // Transparent designer spectacles
+      'https://images.unsplash.com/photo-1614713570247-ef995c73c8b8?q=80&w=300', // Minimal optical frame
+      'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?q=80&w=300', // Gold bridge spectacles
+      'https://images.unsplash.com/photo-1516257984-b1b4d707412e?q=80&w=300', // Acetate optical frame
     ],
+    // Column 3
     [
-      'https://images.unsplash.com/photo-1614713570247-ef995c73c8b8?q=80&w=300',
-      'https://images.unsplash.com/photo-1577803645773-f96470509666?q=80&w=300',
-      'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?q=80&w=300',
-      'https://images.unsplash.com/photo-1516257984-b1b4d707412e?q=80&w=300',
+      'https://images.unsplash.com/photo-1511556820780-d912e42b4980?q=80&w=300', // Tortoise design frame
+      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?q=80&w=300', // Close up sunglasses
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=300', // Specs on color background
+      'https://images.unsplash.com/photo-1548883354-7622d03aca27?q=80&w=300', // Clear lens spectacles
     ],
   ];
 
@@ -339,45 +343,37 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
   List<Widget> _buildImageList(List<String> images, double height) {
     return images.map((url) {
-      return Container(
-        height: height - 8.0,
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border.withValues(alpha: 0.3), width: 0.5),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CachedNetworkImage(
-            imageUrl: url,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              color: AppColors.card,
-              child: Center(
-                child: Icon(
-                  Icons.visibility_outlined,
-                  color: AppColors.muted.withValues(alpha: 0.5),
-                  size: 20,
-                ),
+      return SizedBox(
+        height: height,
+        width: double.infinity,
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            color: AppColors.card,
+            child: const Center(
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.5),
               ),
             ),
-            errorWidget: (context, url, error) => Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.card,
-                    AppColors.background.withValues(alpha: 0.8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.card,
+                  AppColors.background.withValues(alpha: 0.8),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: Center(
-                child: Icon(
-                  Icons.visibility_outlined,
-                  color: AppColors.gold.withValues(alpha: 0.15),
-                  size: 24,
-                ),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.visibility_outlined,
+                color: AppColors.gold.withValues(alpha: 0.15),
+                size: 24,
               ),
             ),
           ),

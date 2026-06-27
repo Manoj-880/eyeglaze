@@ -8,6 +8,7 @@ import '../../widgets/lens_wizard_state.dart';
 import '../../widgets/gold_button.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/cart_provider.dart';
 import '../../models/product.dart';
 import '../cart/cart_screen.dart';
 import 'lens_power_screen.dart';
@@ -246,8 +247,6 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
       // Step 3 (Power) is NOT required -> Add to Cart directly and redirect to CartScreen
       setState(() => _placingOrder = true);
       try {
-        final authService = context.read<AuthService>();
-        final api = ApiService(authService);
         final p = wizard.product;
         if (p == null) return;
 
@@ -259,7 +258,7 @@ class _LensQualityScreenState extends State<LensQualityScreen> {
           'power': null,
         };
 
-        await api.addToCart({
+        await context.read<CartProvider>().addToCart({
           'productId': p.id,
           'qty': 1,
           'color': wizard.selectedColor,

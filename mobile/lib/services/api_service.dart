@@ -216,6 +216,15 @@ class ApiService {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
+  // Fetch active coupons
+  Future<Map<String, dynamic>> getActiveCoupons() async {
+    final res = await _client.get(
+      Uri.parse(_url('/coupons')),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   // Profile
   Future<Map<String, dynamic>> getProfile() async {
     final res = await _client.get(
@@ -307,6 +316,14 @@ class ApiService {
   Future<Map<String, dynamic>> getPrescriptions() async {
     final res = await _client.get(
       Uri.parse(_url('/prescriptions')),
+      headers: await _getHeaders(),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> deletePrescription(String id) async {
+    final res = await _client.delete(
+      Uri.parse(_url('/prescriptions/$id')),
       headers: await _getHeaders(),
     );
     return jsonDecode(res.body) as Map<String, dynamic>;

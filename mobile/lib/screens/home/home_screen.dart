@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme.dart';
@@ -7,6 +9,8 @@ import '../../core/app_config.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
+import '../../services/cart_provider.dart';
 import '../../models/product.dart';
 import '../../models/user.dart';
 import '../products/products_screen.dart';
@@ -28,8 +32,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentTab = 0;
-  int _cartCount = 0;
-  Timer? _cartTimer;
 
   final List<Widget> _tabs = const [
     _HomeBody(),
@@ -52,14 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }).catchError((_) {});
       }
-      loadCartCount();
-    });
-
-    // Periodically sync cart count
-    _cartTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (mounted) {
-        loadCartCount();
-      }
     });
   }
 
@@ -68,26 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (HomeScreen.state == this) {
       HomeScreen.state = null;
     }
-    _cartTimer?.cancel();
     super.dispose();
-  }
-
-  Future<void> loadCartCount() async {
-    try {
-      final auth = context.read<AuthService>();
-      if (auth.isLoggedIn) {
-        final api = ApiService(auth);
-        final data = await api.getCart();
-        final items = ((data['cart'] as Map?)?['items'] ?? data['items'] ?? []) as List;
-        if (mounted) {
-          setState(() {
-            _cartCount = items.length;
-          });
-        }
-      }
-    } catch (_) {
-      // ignore
-    }
   }
 
   void _showGoldMembershipSheet(BuildContext context) {
@@ -274,7 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () {
         setState(() => _currentTab = index);
-        loadCartCount();
       },
       behavior: HitTestBehavior.opaque,
       child: Column(
@@ -298,10 +272,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cartCount = context.watch<CartProvider>().itemCount;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        scrolledUnderElevation: 0,
         leading: Consumer<AuthService>(
           builder: (context, auth, _) {
             final user = auth.currentUser;
@@ -340,9 +317,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const ProductsScreen()),
               );
-              if (mounted) {
-                loadCartCount();
-              }
             },
           ),
           Stack(
@@ -376,16 +350,13 @@ class _HomeScreenState extends State<HomeScreen> {
             context,
             MaterialPageRoute(builder: (_) => const CartScreen()),
           );
-          if (mounted) {
-            loadCartCount();
-          }
         },
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
             const Icon(Icons.shopping_bag_outlined, color: AppColors.gold, size: 24),
-            if (_cartCount > 0)
+            if (cartCount > 0)
               Positioned(
                 right: -6,
                 top: -6,
@@ -401,7 +372,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Center(
                     child: Text(
-                      '$_cartCount',
+                      '$cartCount',
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: 9,
@@ -436,6 +407,7 @@ class _HomeBodyState extends State<_HomeBody> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _GreetingsHeader(),
+          _OfferCoupons(),
           _CategoryGrids(),
           _FeaturedProducts(),
           _PromoBanners(),
@@ -498,6 +470,381 @@ class _GreetingsHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OfferCoupons extends StatefulWidget {
+  const _OfferCoupons();
+
+  @override
+  State<_OfferCoupons> createState() => _OfferCouponsState();
+}
+
+class _OfferCouponsState extends State<_OfferCoupons> {
+  List<dynamic> _coupons = [];
+  bool _loading = false;
+  final PageController _pageController = PageController();
+  int _activeSlide = 0;
+  String? _copiedCode;
+  Timer? _autoScrollTimer;
+
+  String _getCouponBgImage(String code, String name) {
+    final c = code.toLowerCase();
+    final n = name.toLowerCase();
+    
+    if (c.contains('gold') || c.contains('50') || n.contains('50%')) {
+      return '/images/sale_eyeglasses.png';
+    }
+    if (c.contains('coat') || n.contains('coat') || n.contains('glare')) {
+      return '/images/cat_blue_light.png';
+    }
+    if (c.contains('welcome') || c.contains('new') || n.contains('welcome') || n.contains('new')) {
+      return '/images/hero_model.png';
+    }
+    // Fallbacks
+    if (c.contains('sun')) {
+      return '/images/sale_sunglasses.png';
+    }
+    return '/images/promo_new_arrivals.png';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCoupons();
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _startAutoPlay() {
+    _autoScrollTimer?.cancel();
+    if (_coupons.length <= 1) return;
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted) return;
+      if (_pageController.hasClients) {
+        final next = (_activeSlide + 1) % _coupons.length;
+        _pageController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _loadCoupons() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final res = await api.getActiveCoupons();
+      if (mounted) {
+        setState(() {
+          _coupons = res['coupons'] ?? [];
+          _loading = false;
+        });
+        _startAutoPlay();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Widget _buildCouponCard(dynamic coupon) {
+    final code = (coupon['code'] ?? '').toString().toUpperCase();
+    final badge = (coupon['badge'] ?? 'OFFER').toString().toUpperCase();
+    final name = (coupon['name'] ?? 'DISCOUNT VOUCHER').toString().toUpperCase();
+    final description = coupon['description'] ?? 'Apply this promo code at checkout to claim your deal.';
+    final discountType = coupon['discountType'] ?? 'percent';
+    final discountValue = coupon['discountValue'] ?? 0;
+    final minOrderValue = coupon['minOrderValue'];
+
+    final discountText = discountType == 'percent'
+        ? "SAVE $discountValue% ON YOUR ORDER"
+        : "FLAT ₹$discountValue DISCOUNT INSTANTLY";
+
+    final isCopied = _copiedCode == code;
+    final bgPath = _getCouponBgImage(code, name);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFF2A2A2D)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            // Background Image
+            Positioned.fill(
+              child: CachedNetworkImage(
+                imageUrl: AppConfig.resolveImageUrl(bgPath),
+                fit: BoxFit.cover,
+                errorWidget: (context, url, error) => Container(
+                  color: const Color(0xFF151515),
+                ),
+              ),
+            ),
+            // Gradient Overlay for high readability
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.9),
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.black.withValues(alpha: 0.95),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Gold glow effect
+            Positioned(
+              right: -30,
+              top: -30,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.gold.withValues(alpha: 0.05),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.gold.withValues(alpha: 0.15),
+                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          badge,
+                          style: const TextStyle(
+                            color: AppColors.gold,
+                            fontSize: 7.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      if (minOrderValue != null)
+                        Text(
+                          "MIN. SPEND: ₹$minOrderValue",
+                          style: TextStyle(
+                            color: AppColors.white.withValues(alpha: 0.6),
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      shadows: [
+                        Shadow(color: Colors.black54, offset: Offset(0, 1), blurRadius: 2),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    discountText,
+                    style: const TextStyle(
+                      color: AppColors.gold,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: AppColors.white.withValues(alpha: 0.75),
+                      fontSize: 9.5,
+                      height: 1.25,
+                      shadows: const [
+                        Shadow(color: Colors.black54, offset: Offset(0, 1), blurRadius: 1),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0B0B0C).withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.gold.withValues(alpha: 0.3),
+                              style: BorderStyle.solid,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              code,
+                              style: const TextStyle(
+                                color: AppColors.gold,
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: code));
+                          setState(() {
+                            _copiedCode = code;
+                          });
+                          Future.delayed(const Duration(seconds: 2), () {
+                            if (mounted && _copiedCode == code) {
+                              setState(() {
+                                _copiedCode = null;
+                              });
+                            }
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Coupon code "$code" copied to clipboard!'),
+                              backgroundColor: AppColors.success,
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isCopied ? AppColors.success : AppColors.gold,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (isCopied ? AppColors.success : AppColors.gold).withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            isCopied ? "✓ COPIED" : "COPY CODE",
+                            style: TextStyle(
+                              color: isCopied ? Colors.white : Colors.black,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const SizedBox.shrink();
+    }
+    if (_coupons.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            'EXCLUSIVE DEALS',
+            style: TextStyle(
+              color: AppColors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 185,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (idx) {
+              setState(() {
+                _activeSlide = idx;
+              });
+            },
+            itemCount: _coupons.length,
+            itemBuilder: (context, index) {
+              final coupon = _coupons[index];
+              return _buildCouponCard(coupon);
+            },
+          ),
+        ),
+        if (_coupons.length > 1) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              _coupons.length,
+              (idx) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _activeSlide == idx ? 12 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _activeSlide == idx ? AppColors.gold : AppColors.muted.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+      ],
     );
   }
 }
@@ -627,6 +974,32 @@ class _CategoryGridsState extends State<_CategoryGrids> {
   void initState() {
     super.initState();
     _loadCategories();
+    
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final socketService = context.read<SocketService>();
+        socketService.socket?.on('category_changed', _onCategoryChanged);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('category_changed', _onCategoryChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onCategoryChanged(dynamic data) {
+    if (kDebugMode) {
+      print('Socket: category_changed event received on home category grids: $data');
+    }
+    if (mounted) {
+      _loadCategories();
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -910,6 +1283,32 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
   void initState() {
     super.initState();
     _loadBestsellers();
+
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final socketService = context.read<SocketService>();
+        socketService.socket?.on('product_changed', _onProductChanged);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('product_changed', _onProductChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onProductChanged(dynamic data) {
+    if (kDebugMode) {
+      print('Socket: product_changed event received on home featured products: $data');
+    }
+    if (mounted) {
+      _loadBestsellers();
+    }
   }
 
   Future<void> _loadBestsellers() async {
@@ -1002,7 +1401,7 @@ class _FeaturedProductsState extends State<_FeaturedProducts> {
                     product: _products[i],
                     onTap: () => Navigator.push(context, MaterialPageRoute(
                       builder: (_) => ProductDetailScreen(product: _products[i]),
-                    )).then((_) => HomeScreen.state?.loadCartCount()),
+                    )),
                   ),
                 ),
         ),
@@ -2023,10 +2422,23 @@ class FrameShapePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final framePaint = Paint()
       ..color = strokeColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final lensPaint = Paint()
+      ..color = strokeColor.withAlpha(89)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..strokeCap = StrokeCap.round;
+
+    final detailPaint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -2046,22 +2458,24 @@ class FrameShapePainter extends CustomPainter {
       gap = 10;
       
       final leftRect = Rect.fromLTWH(centerX - gap / 2 - lensW, centerY - lensH / 2, lensW, lensH);
-      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(5)), paint);
-
       final rightRect = Rect.fromLTWH(centerX + gap / 2, centerY - lensH / 2, lensW, lensH);
-      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(5)), paint);
-
+      
+      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(5)), framePaint);
+      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(5)), framePaint);
+      
+      canvas.drawRRect(RRect.fromRectAndRadius(leftRect.deflate(1.5), const Radius.circular(4)), lensPaint);
+      canvas.drawRRect(RRect.fromRectAndRadius(rightRect.deflate(1.5), const Radius.circular(4)), lensPaint);
+      
       final bridgePath = Path()
         ..moveTo(centerX - gap / 2, centerY - 2)
         ..quadraticBezierTo(centerX, centerY - 5, centerX + gap / 2, centerY - 2);
-      canvas.drawPath(bridgePath, paint);
+      canvas.drawPath(bridgePath, detailPaint);
 
-      // Temples
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 4), Offset(centerX - gap / 2 - lensW - 5, centerY - 3), paint);
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 5, centerY - 3), Offset(centerX - gap / 2 - lensW - 8, centerY + 2), paint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 4), Offset(centerX - gap / 2 - lensW - 6, centerY - 3), detailPaint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 6, centerY - 3), Offset(centerX - gap / 2 - lensW - 9, centerY + 3), detailPaint);
 
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 4), Offset(centerX + gap / 2 + lensW + 5, centerY - 3), paint);
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 5, centerY - 3), Offset(centerX + gap / 2 + lensW - 8 + 16, centerY + 2), paint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 4), Offset(centerX + gap / 2 + lensW + 6, centerY - 3), detailPaint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 6, centerY - 3), Offset(centerX + gap / 2 + lensW + 9, centerY + 3), detailPaint);
 
     } else if (shape.toLowerCase() == 'rectangle') {
       lensW = 26;
@@ -2069,103 +2483,155 @@ class FrameShapePainter extends CustomPainter {
       gap = 8;
 
       final leftRect = Rect.fromLTWH(centerX - gap / 2 - lensW, centerY - lensH / 2, lensW, lensH);
-      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(3)), paint);
-
       final rightRect = Rect.fromLTWH(centerX + gap / 2, centerY - lensH / 2, lensW, lensH);
-      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(3)), paint);
+
+      canvas.drawRRect(RRect.fromRectAndRadius(leftRect, const Radius.circular(4)), framePaint);
+      canvas.drawRRect(RRect.fromRectAndRadius(rightRect, const Radius.circular(4)), framePaint);
+
+      canvas.drawRRect(RRect.fromRectAndRadius(leftRect.deflate(1.5), const Radius.circular(3)), lensPaint);
+      canvas.drawRRect(RRect.fromRectAndRadius(rightRect.deflate(1.5), const Radius.circular(3)), lensPaint);
 
       final bridgePath = Path()
         ..moveTo(centerX - gap / 2, centerY - 1)
         ..quadraticBezierTo(centerX, centerY - 4, centerX + gap / 2, centerY - 1);
-      canvas.drawPath(bridgePath, paint);
+      canvas.drawPath(bridgePath, detailPaint);
 
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 5, centerY - 2), paint);
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 5, centerY - 2), Offset(centerX - gap / 2 - lensW - 8, centerY + 2), paint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 6, centerY - 2), detailPaint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 6, centerY - 2), Offset(centerX - gap / 2 - lensW - 9, centerY + 3), detailPaint);
 
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 5, centerY - 2), paint);
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 5, centerY - 2), Offset(centerX + gap / 2 + lensW - 8 + 16, centerY + 2), paint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 6, centerY - 2), detailPaint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 6, centerY - 2), Offset(centerX + gap / 2 + lensW + 9, centerY + 3), detailPaint);
 
     } else if (shape.toLowerCase() == 'aviator') {
       lensW = 24;
       lensH = 20;
       gap = 10;
 
-      // Left teardrop path
-      final Path leftPath = Path();
-      final double lLeft = centerX - gap / 2 - lensW;
-      final double lRight = centerX - gap / 2;
+      Path getTeardropPath(double startX, bool isLeft) {
+        final path = Path();
+        final double l = startX;
+        final double r = startX + lensW;
+        final double t = centerY - lensH / 2;
+        final double b = centerY + lensH / 2;
+
+        if (isLeft) {
+          path.moveTo(l + 4, t);
+          path.lineTo(r - 3, t);
+          path.quadraticBezierTo(r, t, r, t + 3);
+          path.lineTo(r - 1, t + 12);
+          path.cubicTo(r - 3, b - 2, l + 5, b + 2, l, b - 6);
+          path.lineTo(l, t + 3);
+          path.quadraticBezierTo(l, t, l + 4, t);
+        } else {
+          path.moveTo(r - 4, t);
+          path.lineTo(l + 3, t);
+          path.quadraticBezierTo(l, t, l, t + 3);
+          path.lineTo(l + 1, t + 12);
+          path.cubicTo(l + 3, b - 2, r - 5, b + 2, r, b - 6);
+          path.lineTo(r, t + 3);
+          path.quadraticBezierTo(r, t, r - 4, t);
+        }
+        return path;
+      }
+
+      final leftPathOuter = getTeardropPath(centerX - gap / 2 - lensW, true);
+      final rightPathOuter = getTeardropPath(centerX + gap / 2, false);
+
+      canvas.drawPath(leftPathOuter, framePaint);
+      canvas.drawPath(rightPathOuter, framePaint);
+
+      Path getTeardropPathInner(double startX, bool isLeft) {
+        final path = Path();
+        final double l = startX + (isLeft ? 1.5 : 0.8);
+        final double r = startX + lensW - (isLeft ? 0.8 : 1.5);
+        final double t = centerY - lensH / 2 + 1.5;
+        final double b = centerY + lensH / 2 - 1.5;
+
+        if (isLeft) {
+          path.moveTo(l + 3, t);
+          path.lineTo(r - 2, t);
+          path.quadraticBezierTo(r, t, r, t + 2);
+          path.lineTo(r - 1, t + 10);
+          path.cubicTo(r - 2, b - 2, l + 4, b + 1.5, l, b - 5);
+          path.lineTo(l, t + 2);
+          path.quadraticBezierTo(l, t, l + 3, t);
+        } else {
+          path.moveTo(r - 3, t);
+          path.lineTo(l + 2, t);
+          path.quadraticBezierTo(l, t, l, t + 2);
+          path.lineTo(l + 1, t + 10);
+          path.cubicTo(l + 2, b - 2, r - 4, b + 1.5, r, b - 5);
+          path.lineTo(r, t + 2);
+          path.quadraticBezierTo(r, t, r - 3, t);
+        }
+        return path;
+      }
+
+      final leftPathInner = getTeardropPathInner(centerX - gap / 2 - lensW, true);
+      final rightPathInner = getTeardropPathInner(centerX + gap / 2, false);
+      canvas.drawPath(leftPathInner, lensPaint);
+      canvas.drawPath(rightPathInner, lensPaint);
+
       final double lTop = centerY - lensH / 2;
-      final double lBottom = centerY + lensH / 2;
-
-      leftPath.moveTo(lLeft + 3, lTop);
-      leftPath.lineTo(lRight - 3, lTop);
-      leftPath.quadraticBezierTo(lRight, lTop, lRight, lTop + 3);
-      leftPath.lineTo(lRight - 1, lTop + 12);
-      leftPath.cubicTo(lRight - 3, lBottom - 2, lLeft + 5, lBottom + 2, lLeft, lBottom - 6);
-      leftPath.lineTo(lLeft, lTop + 3);
-      leftPath.quadraticBezierTo(lLeft, lTop, lLeft + 3, lTop);
-      canvas.drawPath(leftPath, paint);
-
-      // Right teardrop path
-      final Path rightPath = Path();
+      final double lRight = centerX - gap / 2;
       final double rLeft = centerX + gap / 2;
-      final double rRight = centerX + gap / 2 + lensW;
-      final double rTop = centerY - lensH / 2;
-      final double rBottom = centerY + lensH / 2;
-
-      rightPath.moveTo(rRight - 3, rTop);
-      rightPath.lineTo(rLeft + 3, rTop);
-      rightPath.quadraticBezierTo(rLeft, rTop, rLeft, rTop + 3);
-      rightPath.lineTo(rLeft + 1, rTop + 12);
-      rightPath.cubicTo(rLeft + 3, rBottom - 2, rRight - 5, rBottom + 2, rRight, rBottom - 6);
-      rightPath.lineTo(rRight, rTop + 3);
-      rightPath.quadraticBezierTo(rRight, rTop, rRight - 3, rTop);
-      canvas.drawPath(rightPath, paint);
-
-      // Top bridge
-      canvas.drawLine(Offset(lRight - 1, lTop + 1), Offset(rLeft + 1, rTop + 1), paint);
-      // Middle bridge
+      
+      canvas.drawLine(Offset(lRight - 1, lTop + 1), Offset(rLeft + 1, lTop + 1), detailPaint);
+      
       final bridgePath = Path()
         ..moveTo(lRight, centerY)
-        ..quadraticBezierTo(centerX, centerY - 2, rLeft, centerY);
-      canvas.drawPath(bridgePath, paint);
+        ..quadraticBezierTo(centerX, centerY - 2.5, rLeft, centerY);
+      canvas.drawPath(bridgePath, detailPaint);
 
-      canvas.drawLine(Offset(lLeft, centerY - 3), Offset(lLeft - 5, centerY - 2), paint);
-      canvas.drawLine(Offset(lLeft - 5, centerY - 2), Offset(lLeft - 8, centerY + 2), paint);
+      canvas.drawLine(Offset(lRight - lensW, centerY - 3), Offset(lRight - lensW - 6, centerY - 2), detailPaint);
+      canvas.drawLine(Offset(lRight - lensW - 6, centerY - 2), Offset(lRight - lensW - 9, centerY + 3), detailPaint);
 
-      canvas.drawLine(Offset(rRight, centerY - 3), Offset(rRight + 5, centerY - 2), paint);
-      canvas.drawLine(Offset(rRight + 5, centerY - 2), Offset(rRight - 8 + 16, centerY + 2), paint);
+      canvas.drawLine(Offset(rLeft + lensW, centerY - 3), Offset(rLeft + lensW + 6, centerY - 2), detailPaint);
+      canvas.drawLine(Offset(rLeft + lensW + 6, centerY - 2), Offset(rLeft + lensW + 9, centerY + 3), detailPaint);
 
     } else if (shape.toLowerCase() == 'geometric') {
       lensW = 24;
       lensH = 20;
       gap = 10;
 
-      void drawHexagon(double startX) {
-        final path = Path()
-          ..moveTo(startX + 6, centerY - lensH / 2)
-          ..lineTo(startX + lensW - 6, centerY - lensH / 2)
-          ..lineTo(startX + lensW, centerY - 2)
-          ..lineTo(startX + lensW - 6, centerY + lensH / 2)
-          ..lineTo(startX + 6, centerY + lensH / 2)
-          ..lineTo(startX, centerY - 2)
+      Path getHexagonPath(double startX, double inset) {
+        final double l = startX + inset;
+        final double r = startX + lensW - inset;
+        final double t = centerY - lensH / 2 + inset;
+        final double b = centerY + lensH / 2 - inset;
+        final double midY = centerY;
+
+        return Path()
+          ..moveTo(l + 5, t)
+          ..lineTo(r - 5, t)
+          ..lineTo(r, midY)
+          ..lineTo(r - 5, b)
+          ..lineTo(l + 5, b)
+          ..lineTo(l, midY)
           ..close();
-        canvas.drawPath(path, paint);
       }
 
-      drawHexagon(centerX - gap / 2 - lensW);
-      drawHexagon(centerX + gap / 2);
+      final leftHexOuter = getHexagonPath(centerX - gap / 2 - lensW, 0);
+      final rightHexOuter = getHexagonPath(centerX + gap / 2, 0);
+
+      canvas.drawPath(leftHexOuter, framePaint);
+      canvas.drawPath(rightHexOuter, framePaint);
+
+      final leftHexInner = getHexagonPath(centerX - gap / 2 - lensW, 1.5);
+      final rightHexInner = getHexagonPath(centerX + gap / 2, 1.5);
+      canvas.drawPath(leftHexInner, lensPaint);
+      canvas.drawPath(rightHexInner, lensPaint);
 
       final bridgePath = Path()
         ..moveTo(centerX - gap / 2, centerY - 2)
         ..quadraticBezierTo(centerX, centerY - 5, centerX + gap / 2, centerY - 2);
-      canvas.drawPath(bridgePath, paint);
+      canvas.drawPath(bridgePath, detailPaint);
 
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 5, centerY - 2), paint);
-      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 5, centerY - 2), Offset(centerX - gap / 2 - lensW - 8, centerY + 2), paint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW, centerY - 3), Offset(centerX - gap / 2 - lensW - 6, centerY - 2), detailPaint);
+      canvas.drawLine(Offset(centerX - gap / 2 - lensW - 6, centerY - 2), Offset(centerX - gap / 2 - lensW - 9, centerY + 3), detailPaint);
 
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 5, centerY - 2), paint);
-      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 5, centerY - 2), Offset(centerX + gap / 2 + lensW - 8 + 16, centerY + 2), paint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW, centerY - 3), Offset(centerX + gap / 2 + lensW + 6, centerY - 2), detailPaint);
+      canvas.drawLine(Offset(centerX + gap / 2 + lensW + 6, centerY - 2), Offset(centerX + gap / 2 + lensW + 9, centerY + 3), detailPaint);
     }
   }
 

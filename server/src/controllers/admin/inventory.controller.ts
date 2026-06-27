@@ -16,6 +16,8 @@ export async function getInventory(req: Request, res: Response) {
       isBestseller: p.isBestseller,
       colors: p.colors.map((c: any) => ({
         name: c.name,
+        hex: c.hex,
+        images: c.images || [],
         stock: c.stock,
         isLowStock: c.stock < 10,
       })),

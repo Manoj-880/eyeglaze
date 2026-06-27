@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/app_config.dart';
 import '../../core/theme.dart';
 import '../../models/cart_item.dart';
-import '../../services/api_service.dart';
-import '../../services/auth_service.dart';
+import '../../services/cart_provider.dart';
 import '../../widgets/gold_button.dart';
 import 'checkout_screen.dart';
 
@@ -15,68 +16,59 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  List<CartItem> _items = [];
-  bool _loading = true;
-
   @override
   void initState() {
     super.initState();
-    _loadCart();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CartProvider>().loadCart();
+    });
   }
 
-  Future<void> _loadCart() async {
-    setState(() => _loading = true);
-    try {
-      final authService = context.read<AuthService>();
-      final api = ApiService(authService);
-      final data = await api.getCart();
-      final items = ((data['cart'] as Map?)?['items'] ?? data['items'] ?? []) as List;
-      setState(() => _items = items.map((i) => CartItem.fromJson(i)).toList());
-    } catch (e) {
-      setState(() => _items = []);
-    } finally {
-      setState(() => _loading = false);
-    }
+  Future<void> _removeItem(String itemId) async {
+    await context.read<CartProvider>().removeFromCart(itemId);
   }
-
-  Future<void> _removeItem(String id) async {
-    try {
-      final authService = context.read<AuthService>();
-      final api = ApiService(authService);
-      await api.removeFromCart(id);
-      _loadCart();
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  double get _subtotal => _items.fold(0, (s, i) => s + i.totalPrice);
-  double get _delivery => _items.isNotEmpty ? 99 : 0;
-  double get _total => _subtotal + _delivery;
 
   @override
   Widget build(BuildContext context) {
+    final cart = context.watch<CartProvider>();
+    final items = cart.items;
+    final loading = cart.isLoading;
+    final subtotal = cart.subtotal;
+    final delivery = cart.delivery;
+    final total = cart.total;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text('My Cart (${_items.length})', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.white), onPressed: () => Navigator.pop(context)),
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text('My Cart', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        actions: const [],
       ),
-      body: _loading
+      body: loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
-          : _items.isEmpty
+          : items.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.shopping_bag_outlined, color: AppColors.muted, size: 60),
-                      const SizedBox(height: 12),
-                      const Text('Your cart is empty', style: AppTextStyles.heading3),
+                      const Text('🛒', style: TextStyle(fontSize: 60)),
+                      const SizedBox(height: 16),
+                      const Text('Your cart is empty', style: TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-                      const Text('Add some frames to get started!', style: AppTextStyles.muted),
-                      const SizedBox(height: 20),
-                      GoldButton(label: 'BROWSE PRODUCTS', onPressed: () => Navigator.pop(context), width: 200),
+                      const Text('Add some frames to get started', style: TextStyle(color: AppColors.muted)),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: 200,
+                        child: GoldButton(
+                          label: 'SHOP NOW',
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 )
@@ -85,14 +77,13 @@ class _CartScreenState extends State<CartScreen> {
                     Expanded(
                       child: ListView.builder(
                         padding: const EdgeInsets.all(16),
-                        itemCount: _items.length,
+                        itemCount: items.length,
                         itemBuilder: (_, i) => _CartItemCard(
-                          item: _items[i],
-                          onRemove: () => _removeItem(_items[i].id),
+                          item: items[i],
+                          onRemove: () => _removeItem(items[i].id),
                         ),
                       ),
                     ),
-                    // Order summary
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: const BoxDecoration(
@@ -101,14 +92,14 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                       child: Column(
                         children: [
-                          _PriceRow('Subtotal', '₹${_subtotal.toInt()}'),
-                          _PriceRow('Delivery Charge', '₹${_delivery.toInt()}'),
+                          _PriceRow('Subtotal', '₹${subtotal.toInt()}'),
+                          _PriceRow('Delivery Charge', '₹${delivery.toInt()}'),
                           const Divider(color: AppColors.border),
                           Row(
                             children: [
                               const Text('Total', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 16)),
                               const Spacer(),
-                              Text('₹${_total.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 20)),
+                              Text('₹${total.toInt()}', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w900, fontSize: 20)),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -148,7 +139,22 @@ class _CartItemCard extends StatelessWidget {
           Container(
             width: 60, height: 60,
             decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.visibility_outlined, color: AppColors.muted, size: 30),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: item.product != null && item.product!.images.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: AppConfig.resolveImageUrl(item.product!.images.first),
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) => const Center(
+                        child: SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.5),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 24),
+                    )
+                  : const Icon(Icons.visibility_outlined, color: AppColors.muted, size: 30),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

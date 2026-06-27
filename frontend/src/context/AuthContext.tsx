@@ -83,7 +83,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const resBlob = await fetch(uploadedFileUrl);
             const blob = await resBlob.blob();
-            const file = new File([blob], 'prescription.jpg', { type: 'image/jpeg' });
+            const mimeType = blob.type || 'image/jpeg';
+            let filename = 'prescription.jpg';
+            if (mimeType === 'application/pdf') {
+              filename = 'prescription.pdf';
+            } else if (mimeType === 'image/png') {
+              filename = 'prescription.png';
+            } else if (mimeType === 'image/webp') {
+              filename = 'prescription.webp';
+            }
+            const file = new File([blob], filename, { type: mimeType });
             
             const formData = new FormData();
             formData.append('file', file);
@@ -178,6 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setWishlist(initialWishlist);
       await syncLocalCart();
       await fetchCartCount();
+      await checkAuth();
     }
   };
 

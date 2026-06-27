@@ -188,6 +188,14 @@ export async function register(req: Request, res: Response) {
         phone: user.phone || user.mobile,
         mobile: user.mobile,
         role: user.role,
+        membershipActive: user.membershipActive,
+        membershipExpiry: user.membershipExpiry,
+        addresses: user.addresses || [],
+        wishlist: user.wishlist || [],
+        walletBalance: user.walletBalance ?? 0,
+        savedCards: user.savedCards ?? [],
+        linkedWallets: user.linkedWallets ?? [],
+        transactions: user.transactions ?? [],
       },
     });
   } catch (error) {
@@ -252,6 +260,14 @@ export async function login(req: Request, res: Response) {
         phone: user.phone || user.mobile,
         mobile: user.mobile,
         role: user.role,
+        membershipActive: user.membershipActive,
+        membershipExpiry: user.membershipExpiry,
+        addresses: user.addresses || [],
+        wishlist: user.wishlist || [],
+        walletBalance: user.walletBalance ?? 0,
+        savedCards: user.savedCards ?? [],
+        linkedWallets: user.linkedWallets ?? [],
+        transactions: user.transactions ?? [],
       },
     });
   } catch (error) {

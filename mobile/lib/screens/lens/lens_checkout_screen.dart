@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/cart_provider.dart';
 import '../../widgets/lens_step_bar.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../../widgets/gold_button.dart';
@@ -66,8 +67,6 @@ class _LensCheckoutScreenState extends State<LensCheckoutScreen> {
   Future<void> _proceedToPayment(LensWizardState wizard) async {
     setState(() => _placingOrder = true);
     try {
-      final authService = context.read<AuthService>();
-      final api = ApiService(authService);
       final p = wizard.product;
       if (p == null) return;
 
@@ -86,7 +85,7 @@ class _LensCheckoutScreenState extends State<LensCheckoutScreen> {
             : null,
       };
 
-      await api.addToCart({
+      await context.read<CartProvider>().addToCart({
         'productId': p.id,
         'qty': 1,
         'color': wizard.selectedColor,

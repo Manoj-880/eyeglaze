@@ -8,9 +8,9 @@ import '../../models/product.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/socket_service.dart';
+import '../../services/cart_provider.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import 'product_detail_screen.dart';
-import '../home/home_screen.dart';
 import '../../widgets/responsive_container.dart';
 
 class ProductsScreen extends StatefulWidget {
@@ -35,7 +35,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   String? _selectedGender;
   final _searchCtrl = TextEditingController();
 
-  final _categories = ['All', 'Prescription', 'Sunglasses', 'Blue Cut', 'Contact Lenses', 'Kids'];
+  List<String> _categories = ['All', 'Prescription', 'Sunglasses', 'Blue Cut', 'Contact Lenses', 'Kids'];
 
   @override
   void initState() {
@@ -62,12 +62,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
       }
     }
     _loadProducts();
+    _loadCategories();
     
     // Connect socket listener
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final socketService = context.read<SocketService>();
         socketService.socket?.on('product_changed', _onProductChanged);
+        socketService.socket?.on('category_changed', _onCategoryChanged);
       }
     });
   }
@@ -78,6 +80,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     try {
       final socketService = context.read<SocketService>();
       socketService.socket?.off('product_changed', _onProductChanged);
+      socketService.socket?.off('category_changed', _onCategoryChanged);
     } catch (_) {}
     super.dispose();
   }
@@ -89,6 +92,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (mounted) {
       _loadProducts();
     }
+  }
+
+  void _onCategoryChanged(dynamic data) {
+    if (kDebugMode) {
+      print('Socket: category_changed event received in ProductsScreen: $data');
+    }
+    if (mounted) {
+      _loadCategories();
+    }
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final auth = context.read<AuthService>();
+      final api = ApiService(auth);
+      final list = await api.getCategories();
+      if (list.isNotEmpty && mounted) {
+        final names = list.map((c) => (c['name'] ?? '').toString()).where((n) => n.isNotEmpty).toList();
+        final cleanNames = names.map((name) {
+          final lName = name.toLowerCase();
+          if (lName == 'blue cut' || lName == 'blue-cut' || lName == 'blue_light') return 'Blue Cut';
+          if (lName == 'prescription') return 'Prescription';
+          if (lName == 'sunglasses') return 'Sunglasses';
+          if (lName == 'contact-lenses' || lName == 'contact lenses') return 'Contact Lenses';
+          if (lName == 'kids') return 'Kids';
+          return name[0].toUpperCase() + name.substring(1);
+        }).toList();
+
+        setState(() {
+          _categories = ['All', ...cleanNames.toSet()];
+        });
+      }
+    } catch (_) {}
   }
 
   String? _normalizeCategory(String? label) {
@@ -165,9 +201,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
         Navigator.pushNamed(context, '/login');
         return;
       }
-      final api = ApiService(authService);
       final defaultColor = product.colors.isNotEmpty ? product.colors.first.name : 'Matte Black';
-      await api.addToCart({
+      await context.read<CartProvider>().addToCart({
         'productId': product.id,
         'qty': 1,
         'color': defaultColor,
@@ -178,8 +213,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
           content: Text('${product.name} added to cart!'),
           backgroundColor: AppColors.gold,
         ));
-        // Refresh cart badge count instantly
-        HomeScreen.state?.loadCartCount();
       }
     } catch (e) {
       if (mounted) {
@@ -291,12 +324,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: AppColors.white), onPressed: () => Navigator.pop(context)),
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
         title: const EyeGlazeLogo(),
         centerTitle: true,
-        actions: [
-          IconButton(icon: const Icon(Icons.search, color: AppColors.white), onPressed: () {}),
-        ],
+        actions: const [],
       ),
       body: ResponsiveContainer(
         maxWidth: 900,
@@ -382,7 +414,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   ));
                                   if (mounted) {
                                     _loadProducts();
-                                    HomeScreen.state?.loadCartCount();
                                   }
                                 },
                                 onAddTap: () => _addToCart(_products[i]),

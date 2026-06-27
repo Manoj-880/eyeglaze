@@ -7,6 +7,7 @@ import '../../widgets/lens_wizard_state.dart';
 import '../../widgets/gold_button.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/cart_provider.dart';
 import '../cart/cart_screen.dart';
 
 class LensPowerScreen extends StatefulWidget {
@@ -188,6 +189,7 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
     setState(() => _submitting = true);
     try {
       final authService = context.read<AuthService>();
+      final cartProvider = context.read<CartProvider>();
       final api = ApiService(authService);
       final p = wizard.product;
       if (p == null) return;
@@ -226,7 +228,7 @@ class _LensPowerScreenState extends State<LensPowerScreen> {
               },
       };
 
-      await api.addToCart({
+      await cartProvider.addToCart({
         'productId': p.id,
         'qty': 1,
         'color': wizard.selectedColor,

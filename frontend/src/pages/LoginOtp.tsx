@@ -31,15 +31,24 @@ export default function OtpPage() {
     setError('');
     setLoading(true);
     try {
+      // Determine if there are guest cart items before login/registration clears them
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const hasGuestCartItems = guestCartStr ? JSON.parse(guestCartStr).length > 0 : false;
+
       const body = target.mode === 'mobile'
         ? { phone: target.value, otp }
         : { email: target.value, otp };
       const res = await api.post('/auth/verify-otp', body);
       const data = res.data;
       if (data?.user) {
-        login(data.user);
+        await login(data.user);
       }
-      navigate('/products');
+      
+      if (hasGuestCartItems) {
+        navigate('/checkout');
+      } else {
+        navigate('/products');
+      }
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ||

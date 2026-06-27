@@ -47,6 +47,49 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
     }
   }
 
+  Future<void> _deletePrescription(String id) async {
+    final authService = context.read<AuthService>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text('Delete Prescription', style: TextStyle(color: AppColors.white)),
+        content: const Text('Are you sure you want to delete this prescription?', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL', style: TextStyle(color: AppColors.muted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('DELETE', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final api = ApiService(authService);
+      try {
+        await api.deletePrescription(id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Prescription deleted successfully'),
+            backgroundColor: AppColors.success,
+          ));
+          _loadPrescriptions();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Failed to delete prescription: $e'),
+            backgroundColor: AppColors.error,
+          ));
+        }
+      }
+    }
+  }
+
   void _showAddForm() {
     showModalBottomSheet(
       context: context,
@@ -164,8 +207,21 @@ class _PrescriptionsScreenState extends State<PrescriptionsScreen> {
                                   style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
                                 const Spacer(),
-                                if (createdAt.isNotEmpty)
+                                if (createdAt.isNotEmpty) ...[
                                   Text(createdAt, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                                  const SizedBox(width: 8),
+                                ],
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                                  onPressed: () {
+                                    final id = prescription['_id'];
+                                    if (id != null) {
+                                      _deletePrescription(id);
+                                    }
+                                  },
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                ),
                               ],
                             ),
                             if (imageUrl != null && imageUrl.isNotEmpty) ...[

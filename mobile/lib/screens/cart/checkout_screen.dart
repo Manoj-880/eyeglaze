@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/app_config.dart';
 import '../../core/theme.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/cart_provider.dart';
 import '../../widgets/gold_button.dart';
 import '../../widgets/trust_strip.dart';
 import '../../models/cart_item.dart';
@@ -41,6 +44,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _couponError = '';
   String _couponSuccessMessage = '';
   bool _validatingCoupon = false;
+
+  // Active coupons loaded from backend
+  List<dynamic> _activeCoupons = [];
+
+  // Address selection state
+  bool _isNewAddressActive = false;
+  String _selectedAddressId = '';
 
   // Wallet State
   bool _useWallet = false;
@@ -84,9 +94,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final cartItems = ((cartData['cart'] as Map?)?['items'] ?? cartData['items'] ?? []) as List;
       _items = cartItems.map((i) => CartItem.fromJson(i)).toList();
 
+      // Fetch coupons
+      try {
+        final couponRes = await api.getActiveCoupons();
+        _activeCoupons = (couponRes['coupons'] ?? couponRes['data'] ?? []) as List;
+      } catch (_) {}
+
       // Pre-fill default address from user profile
       final user = auth.currentUser;
       if (user != null && user.addresses.isNotEmpty) {
+        _isNewAddressActive = false;
         // Find default or select the first address
         dynamic defaultAddr;
         for (final addr in user.addresses) {
@@ -96,7 +113,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
         }
         defaultAddr ??= user.addresses.first;
+        _selectedAddressId = defaultAddr.id;
         _fillAddress(defaultAddr);
+      } else {
+        _isNewAddressActive = true;
       }
     } catch (_) {
       // Error handling
@@ -186,6 +206,248 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
   }
 
+  void _openCouponSelectionSheet() {
+    if (_couponApplied) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                border: Border(top: BorderSide(color: AppColors.border)),
+              ),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36, height: 4,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text('Select Coupon', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          SizedBox(height: 2),
+                          Text('Choose an active offer to save on your order', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.white, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _couponCtrl,
+                          textCapitalization: TextCapitalization.characters,
+                          style: const TextStyle(color: AppColors.white, fontSize: 13, fontFamily: 'monospace'),
+                          decoration: InputDecoration(
+                            hintText: 'ENTER COUPON CODE',
+                            hintStyle: const TextStyle(color: AppColors.muted, fontSize: 12),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.gold)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: _validatingCoupon
+                            ? null
+                            : () async {
+                                final code = _couponCtrl.text.trim();
+                                if (code.isEmpty) return;
+                                setSheetState(() => _validatingCoupon = true);
+                                await _validateCoupon();
+                                setSheetState(() => _validatingCoupon = false);
+                                if (_couponApplied) {
+                                  if (mounted) setState(() {});
+                                  Navigator.pop(context);
+                                } else {
+                                  setSheetState(() {});
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.gold,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          minimumSize: Size.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: _validatingCoupon
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.black, strokeWidth: 1.5))
+                            : const Text('APPLY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                  if (_couponError.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(_couponError, style: const TextStyle(color: AppColors.error, fontSize: 11)),
+                  ],
+                  const SizedBox(height: 16),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.45),
+                    child: _activeCoupons.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: Text('No active coupons available right now', style: TextStyle(color: AppColors.muted, fontSize: 12))),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: _activeCoupons.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final coupon = _activeCoupons[index];
+                              final code = (coupon['code'] ?? '').toString();
+                              final description = (coupon['description'] ?? '').toString();
+                              final badge = coupon['badge']?.toString();
+                              final minOrderValue = coupon['minOrderValue'];
+                              final maxDiscount = coupon['maxDiscount'];
+                              final isApplied = _appliedCouponCode == code;
+                              
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF161618),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isApplied ? AppColors.success.withValues(alpha: 0.5) : AppColors.border,
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Positioned(
+                                      left: -6, top: 0, bottom: 0,
+                                      child: Center(
+                                        child: Container(
+                                          width: 12, height: 12,
+                                          decoration: const BoxDecoration(color: AppColors.card, shape: BoxShape.circle),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: -6, top: 0, bottom: 0,
+                                      child: Center(
+                                        child: Container(
+                                          width: 12, height: 12,
+                                          decoration: const BoxDecoration(color: AppColors.card, shape: BoxShape.circle),
+                                        ),
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(14),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                if (badge != null && badge.isNotEmpty) ...[
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.gold.withValues(alpha: 0.15),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: AppColors.gold.withValues(alpha: 0.35)),
+                                                    ),
+                                                    child: Text(
+                                                      badge.toUpperCase(),
+                                                      style: const TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                ],
+                                                Text(code, style: const TextStyle(color: AppColors.white, fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5)),
+                                                const SizedBox(height: 4),
+                                                Text(description, style: const TextStyle(color: AppColors.muted, fontSize: 10, height: 1.3)),
+                                                if (minOrderValue != null || maxDiscount != null) ...[
+                                                  const SizedBox(height: 6),
+                                                  Row(
+                                                    children: [
+                                                      if (minOrderValue != null) ...[
+                                                        Text('MIN PURCHASE: ₹$minOrderValue', style: const TextStyle(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold)),
+                                                        if (maxDiscount != null) const SizedBox(width: 8),
+                                                      ],
+                                                      if (maxDiscount != null)
+                                                        Text('MAX DISCOUNT: ₹$maxDiscount', style: const TextStyle(color: Colors.white24, fontSize: 8, fontWeight: FontWeight.bold)),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          ElevatedButton(
+                                            onPressed: () async {
+                                              setSheetState(() => _validatingCoupon = true);
+                                              if (isApplied) {
+                                                _removeCoupon();
+                                              } else {
+                                                _couponCtrl.text = code;
+                                                await _validateCoupon();
+                                              }
+                                              setSheetState(() => _validatingCoupon = false);
+                                              if (_couponApplied || isApplied) {
+                                                if (mounted) setState(() {});
+                                                Navigator.pop(context);
+                                              } else {
+                                                setSheetState(() {});
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: isApplied ? AppColors.success : AppColors.gold,
+                                              foregroundColor: isApplied ? AppColors.white : Colors.black,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                            ),
+                                            child: Text(
+                                              isApplied ? 'Applied ✓' : 'Apply',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _placeOrder() async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -197,6 +459,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _submitting = true);
     try {
       final auth = context.read<AuthService>();
+      final cartProvider = context.read<CartProvider>();
       final api = ApiService(auth);
 
       final payload = {
@@ -217,6 +480,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       final response = await api.createOrder(payload);
       if (response['orderId'] != null) {
+        // Clear local cart state
+        try {
+          cartProvider.clearCartLocal();
+        } catch (_) {}
+
         // Refresh profile to update wallet balance in local state
         try {
           final profileRes = await api.getProfile();
@@ -293,11 +561,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   height: 94,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: user.addresses.length,
+                    itemCount: user.addresses.length + 1,
                     itemBuilder: (context, i) {
+                      if (i == user.addresses.length) {
+                        final isSelected = _isNewAddressActive;
+                        return GestureDetector(
+                          onTap: () => setState(() {
+                            _isNewAddressActive = true;
+                            _selectedAddressId = '';
+                            _nameCtrl.clear();
+                            _phoneCtrl.clear();
+                            _line1Ctrl.clear();
+                            _line2Ctrl.clear();
+                            _cityCtrl.clear();
+                            _stateCtrl.clear();
+                            _pincodeCtrl.clear();
+                          }),
+                          child: Container(
+                            width: 120,
+                            margin: const EdgeInsets.only(right: 10),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.card,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: isSelected ? AppColors.gold : AppColors.border,
+                                width: isSelected ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.add, color: AppColors.gold, size: 24),
+                                SizedBox(height: 6),
+                                Text('Add New', style: TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
                       final addr = user.addresses[i];
+                      final isSelected = !_isNewAddressActive && _selectedAddressId == addr.id;
                       return GestureDetector(
-                        onTap: () => setState(() => _fillAddress(addr)),
+                        onTap: () => setState(() {
+                          _isNewAddressActive = false;
+                          _selectedAddressId = addr.id;
+                          _fillAddress(addr);
+                        }),
                         child: Container(
                           width: 170,
                           margin: const EdgeInsets.only(right: 10),
@@ -305,7 +616,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           decoration: BoxDecoration(
                             color: AppColors.card,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(
+                              color: isSelected ? AppColors.gold : AppColors.border,
+                              width: isSelected ? 1.5 : 1.0,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,149 +650,158 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 14),
               ],
 
-              // Address fields form
-              TextFormField(
-                controller: _nameCtrl,
-                style: const TextStyle(color: AppColors.white),
-                decoration: const InputDecoration(labelText: 'Full Name *'),
-                validator: (val) => val == null || val.isEmpty ? 'Required field' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _phoneCtrl,
-                style: const TextStyle(color: AppColors.white),
-                decoration: const InputDecoration(labelText: 'Mobile Number *', prefixText: '+91 '),
-                keyboardType: TextInputType.phone,
-                validator: (val) => val == null || val.length != 10 ? 'Enter a valid 10-digit number' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _line1Ctrl,
-                style: const TextStyle(color: AppColors.white),
-                decoration: const InputDecoration(labelText: 'Flat, House no., Apartment *'),
-                validator: (val) => val == null || val.isEmpty ? 'Required field' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _line2Ctrl,
-                style: const TextStyle(color: AppColors.white),
-                decoration: const InputDecoration(labelText: 'Area, Street, Sector (Optional)'),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _cityCtrl,
-                      style: const TextStyle(color: AppColors.white),
-                      decoration: const InputDecoration(labelText: 'City *'),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
+              // Conditional Display: Delivery Address summary or fields form
+              if (!_isNewAddressActive) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _stateCtrl,
-                      style: const TextStyle(color: AppColors.white),
-                      decoration: const InputDecoration(labelText: 'State *'),
-                      validator: (val) => val == null || val.isEmpty ? 'Required' : null,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          Icon(Icons.location_on_outlined, color: AppColors.gold, size: 18),
+                          SizedBox(width: 6),
+                          Text('DELIVERY ADDRESS', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
+                        ],
+                      ),
+                      const Divider(color: AppColors.border, height: 20),
+                      Text(_nameCtrl.text, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 4),
+                      Text('+91 ${_phoneCtrl.text}', style: const TextStyle(color: AppColors.muted, fontSize: 11)),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${_line1Ctrl.text}${_line2Ctrl.text.isNotEmpty ? ', ' + _line2Ctrl.text : ''}\n'
+                        '${_cityCtrl.text}, ${_stateCtrl.text} - ${_pincodeCtrl.text}',
+                        style: const TextStyle(color: AppColors.muted, fontSize: 11, height: 1.4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _pincodeCtrl,
-                style: const TextStyle(color: AppColors.white),
-                decoration: const InputDecoration(labelText: 'Pincode *'),
-                keyboardType: TextInputType.number,
-                validator: (val) => val == null || val.length != 6 ? 'Enter a 6-digit code' : null,
-              ),
-              const SizedBox(height: 24),
+                ),
+                const SizedBox(height: 24),
+              ] else ...[
+                const Text('ENTER NEW ADDRESS', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _nameCtrl,
+                  style: const TextStyle(color: AppColors.white),
+                  decoration: const InputDecoration(labelText: 'Full Name *'),
+                  validator: (val) => val == null || val.isEmpty ? 'Required field' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _phoneCtrl,
+                  style: const TextStyle(color: AppColors.white),
+                  decoration: const InputDecoration(labelText: 'Mobile Number *', prefixText: '+91 '),
+                  keyboardType: TextInputType.phone,
+                  validator: (val) => val == null || val.length != 10 ? 'Enter a valid 10-digit number' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _line1Ctrl,
+                  style: const TextStyle(color: AppColors.white),
+                  decoration: const InputDecoration(labelText: 'Flat, House no., Apartment *'),
+                  validator: (val) => val == null || val.isEmpty ? 'Required field' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _line2Ctrl,
+                  style: const TextStyle(color: AppColors.white),
+                  decoration: const InputDecoration(labelText: 'Area, Street, Sector (Optional)'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _cityCtrl,
+                        style: const TextStyle(color: AppColors.white),
+                        decoration: const InputDecoration(labelText: 'City *'),
+                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stateCtrl,
+                        style: const TextStyle(color: AppColors.white),
+                        decoration: const InputDecoration(labelText: 'State *'),
+                        validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _pincodeCtrl,
+                  style: const TextStyle(color: AppColors.white),
+                  decoration: const InputDecoration(labelText: 'Pincode *'),
+                  keyboardType: TextInputType.number,
+                  validator: (val) => val == null || val.length != 6 ? 'Enter a 6-digit code' : null,
+                ),
+                const SizedBox(height: 24),
+              ],
 
               // Coupon / Promo Section
               const Text('PROMO CODE', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5)),
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!_couponApplied) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _couponCtrl,
-                              textCapitalization: TextCapitalization.characters,
-                              style: const TextStyle(color: AppColors.white, fontSize: 14),
-                              decoration: InputDecoration(
-                                hintText: 'Enter coupon code',
-                                hintStyle: const TextStyle(color: AppColors.muted, fontSize: 14),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(color: AppColors.border),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide: const BorderSide(color: AppColors.gold),
-                                ),
-                              ),
+              GestureDetector(
+                onTap: _openCouponSelectionSheet,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _couponApplied ? AppColors.success.withValues(alpha: 0.05) : AppColors.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _couponApplied ? AppColors.success.withValues(alpha: 0.5) : AppColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text('🎫', style: TextStyle(fontSize: 20)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _couponApplied ? 'COUPON: $_appliedCouponCode' : 'Apply Coupon',
+                              style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          SizedBox(
-                            height: 46,
-                            child: ElevatedButton(
-                              onPressed: _validatingCoupon ? null : _validateCoupon,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.gold,
-                                foregroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: _validatingCoupon
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2),
-                                    )
-                                  : const Text('APPLY', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(
+                              _couponApplied ? 'Saved ₹${_couponDiscount.toInt()}!' : 'Check available offers',
+                              style: const TextStyle(color: AppColors.muted, fontSize: 10),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      if (_couponError.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(_couponError, style: const TextStyle(color: AppColors.error, fontSize: 12)),
-                      ],
-                    ] else ...[
-                      Row(
-                        children: [
-                          const Icon(Icons.check_circle_outline, color: AppColors.success, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Code $_appliedCouponCode Applied!', style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text(_couponSuccessMessage, style: const TextStyle(color: AppColors.success, fontSize: 12)),
-                              ],
-                            ),
+                      if (_couponApplied)
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _removeCoupon();
+                            });
+                          },
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: AppColors.error),
-                            onPressed: _removeCoupon,
+                          child: const Text(
+                            'REMOVE',
+                            style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.5),
                           ),
-                        ],
-                      ),
+                        )
+                      else
+                        const Icon(Icons.arrow_forward_ios, color: AppColors.muted, size: 14),
                     ],
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -548,33 +871,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: RadioGroup<String>(
-                    groupValue: _paymentMethod,
-                    onChanged: (val) => setState(() => _paymentMethod = val!),
-                    child: const Column(
-                      children: [
-                        RadioListTile<String>(
-                          title: Text('Cash on Delivery (COD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                          subtitle: Text('Pay with cash upon package arrival', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                          value: 'cod',
-                          activeColor: AppColors.gold,
-                        ),
-                        Divider(color: AppColors.border, height: 1),
-                        RadioListTile<String>(
-                          title: Text('Credit / Debit Card', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                          subtitle: Text('Secure payment via Visa, Mastercard, RuPay', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                          value: 'card',
-                          activeColor: AppColors.gold,
-                        ),
-                        Divider(color: AppColors.border, height: 1),
-                        RadioListTile<String>(
-                          title: Text('UPI / NetBanking', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                          subtitle: Text('Instant transfer via GPay, PhonePe, Paytm', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-                          value: 'upi',
-                          activeColor: AppColors.gold,
-                        ),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      RadioListTile<String>(
+                        title: const Text('Cash on Delivery (COD)', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Pay with cash upon package arrival', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                        value: 'cod',
+                        groupValue: _paymentMethod,
+                        onChanged: (val) => setState(() => _paymentMethod = val!),
+                        activeColor: AppColors.gold,
+                      ),
+                      const Divider(color: AppColors.border, height: 1),
+                      RadioListTile<String>(
+                        title: const Text('Credit / Debit Card', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Secure payment via Visa, Mastercard, RuPay', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                        value: 'card',
+                        groupValue: _paymentMethod,
+                        onChanged: (val) => setState(() => _paymentMethod = val!),
+                        activeColor: AppColors.gold,
+                      ),
+                      const Divider(color: AppColors.border, height: 1),
+                      RadioListTile<String>(
+                        title: const Text('UPI / NetBanking', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Instant transfer via GPay, PhonePe, Paytm', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                        value: 'upi',
+                        groupValue: _paymentMethod,
+                        onChanged: (val) => setState(() => _paymentMethod = val!),
+                        activeColor: AppColors.gold,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -606,7 +931,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               Container(
                                 width: 44, height: 44,
                                 decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(6)),
-                                child: const Icon(Icons.visibility_outlined, color: AppColors.muted, size: 20),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: item.product != null && item.product!.images.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: AppConfig.resolveImageUrl(item.product!.images.first),
+                                          fit: BoxFit.contain,
+                                          placeholder: (context, url) => const Center(
+                                            child: SizedBox(
+                                              width: 14, height: 14,
+                                              child: CircularProgressIndicator(color: AppColors.gold, strokeWidth: 1.0),
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 16),
+                                        )
+                                      : const Icon(Icons.visibility_outlined, color: AppColors.muted, size: 20),
+                                ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(

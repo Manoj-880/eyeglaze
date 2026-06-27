@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,8 @@ import '../../core/app_config.dart';
 import '../../models/product.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/socket_service.dart';
+import '../../services/cart_provider.dart';
 import '../../widgets/eyeglaze_logo.dart';
 import '../../widgets/lens_wizard_state.dart';
 import '../lens/lens_type_screen.dart';
@@ -25,7 +28,6 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int _selectedColorIdx = 0;
   int _currentImage = 0;
-  int _cartCount = 0;
 
   // Size Selector State
   String _selectedSize = 'Medium';
@@ -68,21 +70,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   List<Product> _similarProducts = [];
   bool _similarLoading = true;
 
-  Future<void> _loadCartCount() async {
-    try {
-      final auth = context.read<AuthService>();
-      if (auth.isLoggedIn) {
-        final api = ApiService(auth);
-        final data = await api.getCart();
-        final items = ((data['cart'] as Map?)?['items'] ?? data['items'] ?? []) as List;
-        if (mounted) {
-          setState(() {
-            _cartCount = items.length;
-          });
-        }
-      }
-    } catch (_) {}
-  }
+  // Cart count is managed globally via CartProvider
 
   // Review Form Controllers
   final _reviewNameCtrl = TextEditingController();
@@ -166,15 +154,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return 'Default';
   }
 
+  late PageController _pageController;
+
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _currentImage);
     _rating = p.rating;
     _reviewCount = p.reviewCount;
     _reviews = _getMockReviews();
     _checkWishlistStatus();
     _loadProductDetails();
-    _loadCartCount();
     final available = p.availableSizes.isNotEmpty ? p.availableSizes : const ['Small', 'Medium', 'Large'];
     final recSize = recommendedSize;
     if (available.contains(recSize)) {
@@ -182,14 +172,49 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     } else {
       _selectedSize = available.first;
     }
+
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final socketService = context.read<SocketService>();
+        socketService.socket?.on('product_changed', _onProductChanged);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     _reviewNameCtrl.dispose();
     _reviewTitleCtrl.dispose();
     _reviewCommentCtrl.dispose();
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('product_changed', _onProductChanged);
+    } catch (_) {}
     super.dispose();
+  }
+
+  void _onProductChanged(dynamic data) {
+    if (kDebugMode) {
+      print('Socket: product_changed event received in ProductDetailScreen: $data');
+    }
+    if (!mounted) return;
+
+    final action = data['action']?.toString();
+    final id = data['id']?.toString() ?? (data['product'] != null ? data['product']['_id']?.toString() : null);
+
+    if (id == p.id) {
+      if (action == 'delete') {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('This product is no longer available.'),
+          backgroundColor: AppColors.error,
+        ));
+        Navigator.pop(context);
+      } else if (action == 'update') {
+        _loadProductDetails();
+      }
+    }
   }
 
   // Wishlist Checks
@@ -400,22 +425,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
   }
 
-  // AI Chat assistant Bottom Sheet drawer
-  void _openAiChat() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AiChatBottomSheetContent(
-        sku: p.sku,
-        price: p.sellingPrice,
-        frameWidth: p.frame?.width?.toInt() ?? 140,
-        lensWidth: p.frame?.lensWidth?.toInt() ?? 54,
-        bridgeWidth: p.frame?.bridgeWidth?.toInt() ?? 18,
-        templeLength: p.frame?.templeLength?.toInt() ?? 145,
-      ),
-    );
-  }
 
   Widget _buildTrustStrip() {
     final items = [
@@ -449,300 +458,283 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cartCount = context.watch<CartProvider>().itemCount;
     try {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: AppColors.background,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
+          scrolledUnderElevation: 0,
+          automaticallyImplyLeading: false,
           title: const EyeGlazeLogo(),
           centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.share_outlined, color: AppColors.white),
-              onPressed: _shareProduct,
-            ),
-            IconButton(
-              icon: Icon(
-                _isInWishlist ? Icons.favorite : Icons.favorite_border,
-                color: _isInWishlist ? AppColors.gold : AppColors.white,
-              ),
-              onPressed: _toggleWishlist,
-            ),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.shopping_bag_outlined, color: AppColors.white),
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const CartScreen()),
-                    );
-                    _loadCartCount();
-                  },
-                ),
-                if (_cartCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: const BoxDecoration(
-                        color: AppColors.gold,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$_cartCount',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 8),
-          ],
+          actions: const [],
         ),
         body: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
                 // Top side-by-side layout (Row)
+                // Top Image Carousel Card (Entire Width)
                 Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Left side: Image Carousel Card
-                      Expanded(
-                        flex: 5,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              height: 180,
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.border),
+                      Container(
+                        height: 260,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            children: [
+                              PageView.builder(
+                                controller: _pageController,
+                                itemCount: imagesList.length,
+                                onPageChanged: (index) {
+                                  setState(() {
+                                    _currentImage = index;
+                                  });
+                                },
+                                itemBuilder: (context, index) {
+                                  return Center(
+                                    child: CachedNetworkImage(
+                                      imageUrl: AppConfig.resolveImageUrl(imagesList[index]),
+                                      fit: BoxFit.contain,
+                                      placeholder: (context, url) => const CircularProgressIndicator(color: AppColors.gold),
+                                      errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 50),
+                                    ),
+                                  );
+                                },
                               ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Stack(
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Center(
-                                      child: CachedNetworkImage(
-                                        imageUrl: AppConfig.resolveImageUrl(imagesList[_currentImage]),
-                                        fit: BoxFit.contain,
-                                        placeholder: (context, url) => const CircularProgressIndicator(color: AppColors.gold),
-                                        errorWidget: (context, url, error) => const Icon(Icons.broken_image_outlined, color: AppColors.muted, size: 50),
+                                    if (p.isBestseller)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
+                                        child: const Text('BESTSELLER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                                       ),
-                                    ),
-                                    Positioned(
-                                      top: 8,
-                                      left: 8,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (p.isBestseller)
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 4),
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                              decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
-                                              child: const Text('BESTSELLER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                            ),
-                                          if (p.isPremium)
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 4),
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: Colors.black.withValues(alpha: 0.75),
-                                                border: Border.all(color: AppColors.gold, width: 1),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: const Text('PREMIUM', style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold)),
-                                            ),
-                                          if (p.buy1Get1)
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 4),
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                              decoration: BoxDecoration(color: Colors.pink.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
-                                              child: const Text('BUY 1 GET 1', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                            ),
-                                          if (p.oneRupeeFrameOffer)
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 4),
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                              decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
-                                              child: const Text('₹1 FRAME OFFER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                            ),
-                                          ...p.offerBadges.map((badge) => Container(
-                                                margin: const EdgeInsets.only(bottom: 4),
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                                decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
-                                                child: Text(badge.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
-                                              )),
-                                        ],
+                                    if (p.isPremium)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.75),
+                                          border: Border.all(color: AppColors.gold, width: 1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text('PREMIUM', style: TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.bold)),
                                       ),
-                                    ),
+                                    if (p.buy1Get1)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(color: Colors.pink.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
+                                        child: const Text('BUY 1 GET 1', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                      ),
+                                    if (p.oneRupeeFrameOffer)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
+                                        child: const Text('₹1 FRAME OFFER', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ...p.offerBadges.map((badge) => Container(
+                                          margin: const EdgeInsets.only(bottom: 4),
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                          decoration: BoxDecoration(color: Colors.purple.withValues(alpha: 0.8), borderRadius: BorderRadius.circular(4)),
+                                          child: Text(badge.toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                        )),
                                   ],
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            // Carousel Indicators (Dots)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(imagesList.length, (idx) {
-                                final isActive = idx == _currentImage;
-                                return GestureDetector(
-                                  onTap: () => setState(() => _currentImage = idx),
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                                    width: 6,
-                                    height: 6,
-                                    decoration: BoxDecoration(
-                                      color: isActive ? AppColors.gold : Colors.white24,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      // Right side: Info Column
-                      Expanded(
-                        flex: 5,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${p.sku} | ${p.name}'.toUpperCase(),
+                      const SizedBox(height: 8),
+                      // Carousel Indicators (Dots)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(imagesList.length, (idx) {
+                          final isActive = idx == _currentImage;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() => _currentImage = idx);
+                              _pageController.animateToPage(
+                                idx,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: isActive ? AppColors.gold : Colors.white24,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+                // Product Info details below
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              p.name.toUpperCase(),
                               style: const TextStyle(
                                 color: AppColors.white,
                                 fontWeight: FontWeight.w800,
-                                fontSize: 14,
+                                fontSize: 16,
                                 letterSpacing: 0.5,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 4),
-                            // Rating and purchase count
-                            Row(
-                              children: [
-                                const Icon(Icons.star, color: AppColors.gold, size: 12),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '${_rating.toStringAsFixed(1)} ',
-                                  style: const TextStyle(color: AppColors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    '($_reviewCount reviews) | ${p.soldCount > 0 ? p.soldCount : 500}+ bought this week',
-                                    style: const TextStyle(color: Colors.white54, fontSize: 8.5),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.share_outlined, color: AppColors.gold, size: 22),
+                            onPressed: _shareProduct,
+                            tooltip: 'Share Product',
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              _isInWishlist ? Icons.favorite : Icons.favorite_border,
+                              color: _isInWishlist ? AppColors.gold : AppColors.white,
+                              size: 22,
                             ),
-                            const SizedBox(height: 10),
-                            // Frame starting box
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.card,
-                                border: Border.all(color: AppColors.border),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
+                            onPressed: _toggleWishlist,
+                            tooltip: 'Add to Wishlist',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Rating and purchase count
+                      Row(
+                        children: [
+                          const Icon(Icons.star, color: AppColors.gold, size: 13),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_rating.toStringAsFixed(1)} ',
+                            style: const TextStyle(color: AppColors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '($_reviewCount reviews) | ${p.soldCount > 0 ? p.soldCount : 500}+ bought this week',
+                            style: const TextStyle(color: Colors.white54, fontSize: 9.5),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Frame starting box
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              isContactLenses ? 'CONTACT LENS PRICE' : 'FRAME STARTING',
+                              style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            ),
+                            const SizedBox(height: 6),
+                            if (!isContactLenses && p.memberPrice != null && p.nonMemberPrice != null) ...[
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    isContactLenses ? 'CONTACT LENS PRICE' : 'FRAME STARTING',
-                                    style: const TextStyle(color: Colors.white38, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '₹${p.memberPrice!.toInt()}',
+                                        style: const TextStyle(color: AppColors.gold, fontSize: 22, fontWeight: FontWeight.w900),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text('(Member)', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    ],
                                   ),
                                   const SizedBox(height: 4),
-                                  if (!isContactLenses && p.memberPrice != null && p.nonMemberPrice != null) ...[
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '₹${p.memberPrice!.toInt()}',
-                                              style: const TextStyle(color: AppColors.gold, fontSize: 18, fontWeight: FontWeight.w900),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Text('(Member)', style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              '₹${p.nonMemberPrice!.toInt()}',
-                                              style: const TextStyle(color: AppColors.white, fontSize: 14, fontWeight: FontWeight.w900),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Text('(Non-Member)', style: TextStyle(color: Colors.white38, fontSize: 9)),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ] else
-                                    Row(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          '₹${displayPrice.toInt()}',
-                                          style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                                        ),
-                                        if (_customPriceOverride == null) ...[
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            '₹${p.originalPrice.toInt()}',
-                                            style: const TextStyle(color: Colors.white38, fontSize: 11, decoration: TextDecoration.lineThrough),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.gold.withValues(alpha: 0.15),
-                                              border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 1),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
-                                              style: const TextStyle(color: AppColors.gold, fontSize: 8, fontWeight: FontWeight.w800),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '₹${p.nonMemberPrice!.toInt()}',
+                                        style: const TextStyle(color: AppColors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text('(Non-Member)', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ),
+                            ] else
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '₹${displayPrice.toInt()}',
+                                    style: const TextStyle(color: AppColors.white, fontSize: 22, fontWeight: FontWeight.w900),
+                                  ),
+                                  if (_customPriceOverride == null) ...[
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '₹${p.originalPrice.toInt()}',
+                                      style: const TextStyle(color: Colors.white38, fontSize: 13, decoration: TextDecoration.lineThrough),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.gold.withValues(alpha: 0.15),
+                                        border: Border.all(color: AppColors.gold.withValues(alpha: 0.3), width: 1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '${((p.originalPrice - p.sellingPrice) / p.originalPrice * 100).round()}% OFF',
+                                        style: const TextStyle(color: AppColors.gold, fontSize: 9, fontWeight: FontWeight.w800),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                           ],
                         ),
                       ),
@@ -776,7 +768,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 12),
                                   child: GestureDetector(
-                                    onTap: () => setState(() => _selectedColorIdx = e.key),
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedColorIdx = e.key;
+                                        _currentImage = 0;
+                                      });
+                                      _pageController.jumpToPage(0);
+                                    },
                                     child: SizedBox(
                                       width: 34,
                                       height: 34,
@@ -916,60 +914,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 20),
                         // Frame Dimensions Title Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'FRAME DIMENSIONS (in mm)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 13,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    backgroundColor: AppColors.card,
-                                    title: const Text('Technical Details', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                    content: Text(
-                                      'SKU: ${p.sku}\n'
-                                      'Frame Type: ${p.frame?.type ?? "Standard"}\n'
-                                      'Material: ${p.frame?.material ?? "Premium TR90"}\n'
-                                      'Frame Width: ${activeDimensions['frameWidth']?.toInt() ?? 0} mm\n'
-                                      'Lens Width: ${activeDimensions['lensWidth']?.toInt() ?? 0} mm\n'
-                                      'Bridge: ${activeDimensions['bridgeWidth']?.toInt() ?? 0} mm\n'
-                                      'Temple Length: ${activeDimensions['templeLength']?.toInt() ?? 0} mm',
-                                      style: const TextStyle(color: Colors.white70),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        child: const Text('CLOSE', style: TextStyle(color: AppColors.gold)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              child: const Row(
-                                children: [
-                                  Text(
-                                    'Technical Details',
-                                    style: TextStyle(
-                                      color: AppColors.gold,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(width: 4),
-                                  Icon(Icons.keyboard_arrow_up, color: AppColors.gold, size: 14),
-                                ],
-                              ),
-                            ),
-                          ],
+                        const Text(
+                          'FRAME DIMENSIONS (in mm)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         _FrameSpecs(
@@ -1081,45 +1033,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                 ),
                 _buildTrustStrip(),
-                // AI help banner
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.chat_bubble_outline, color: AppColors.gold, size: 22),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Need Help?',
-                                style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Chat with our AI Assistant',
-                                style: TextStyle(color: AppColors.muted, fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _openAiChat,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(border: Border.all(color: AppColors.gold), borderRadius: BorderRadius.circular(8)),
-                            child: const Text('CHAT NOW', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 11)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
 
                 // Related Products Section
                 if (!_similarLoading && _similarProducts.isNotEmpty)
@@ -1708,6 +1621,52 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
         ),
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: AppColors.gold,
+          foregroundColor: Colors.black,
+          shape: const CircleBorder(
+            side: BorderSide(color: Colors.black, width: 1),
+          ),
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CartScreen()),
+            );
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.shopping_bag_outlined, size: 26),
+              if (cartCount > 0)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.gold, width: 1),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$cartCount',
+                        style: const TextStyle(
+                          color: AppColors.gold,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       );
     } catch (e, stack) {
       return Scaffold(
@@ -1748,8 +1707,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     try {
-      final authService = context.read<AuthService>();
-      final api = ApiService(authService);
       final payload = {
         'productId': p.id,
         'qty': 1,
@@ -1775,13 +1732,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         payload['framePrice'] = p.sellingPrice;
       }
 
-      await api.addToCart(payload);
+      await context.read<CartProvider>().addToCart(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Added to cart!'),
           backgroundColor: AppColors.gold,
         ));
-        _loadCartCount();
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -1805,8 +1761,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     try {
-      final authService = context.read<AuthService>();
-      final api = ApiService(authService);
       final payload = {
         'productId': p.id,
         'qty': 1,
@@ -1830,7 +1784,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         };
       }
 
-      await api.addToCart(payload);
+      await context.read<CartProvider>().addToCart(payload);
 
       if (mounted) {
         Navigator.push(
@@ -2614,48 +2568,15 @@ class _FrameDetails extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: [
-              const Icon(Icons.shield_outlined, color: AppColors.gold, size: 18),
-              const SizedBox(width: 8),
-              const Expanded(
+            children: const [
+              Icon(Icons.shield_outlined, color: AppColors.gold, size: 18),
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
                   'Frame Details & Specifications',
                   style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold, fontSize: 15),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      backgroundColor: AppColors.card,
-                      title: const Text('Frame Specifications', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      content: const Text(
-                        'Handcrafted premium frames, double-reinforced hinges, organic coatings, premium materials.',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('CLOSE', style: TextStyle(color: AppColors.gold)),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.gold, width: 1.0),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text(
-                  'VIEW DETAILS',
-                  style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.5),
                 ),
               ),
             ],

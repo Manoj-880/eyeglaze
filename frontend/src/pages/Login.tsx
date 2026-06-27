@@ -27,6 +27,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Determine if there are guest cart items before login/registration clears them
+      const guestCartStr = localStorage.getItem('guest_cart');
+      const hasGuestCartItems = guestCartStr ? JSON.parse(guestCartStr).length > 0 : false;
+
       if (activeTab === 'register') {
         if (!name || !email || !password) {
           setError('All fields are required');
@@ -36,10 +40,10 @@ export default function LoginPage() {
         const res = await api.post('/auth/register', { name, email, password });
         const data = res.data;
         if (data?.user) {
-          login(data.user);
+          await login(data.user);
         }
         setSuccessMsg('Registration successful!');
-        redirectUser(data?.user?.role);
+        redirectUser(data?.user?.role, hasGuestCartItems);
       } else {
         if (!email || !password) {
           setError('Email and password are required');
@@ -49,9 +53,9 @@ export default function LoginPage() {
         const res = await api.post('/auth/login', { email, password });
         const data = res.data;
         if (data?.user) {
-          login(data.user);
+          await login(data.user);
         }
-        redirectUser(data?.user?.role);
+        redirectUser(data?.user?.role, hasGuestCartItems);
       }
     } catch (err: unknown) {
       const message =
@@ -63,16 +67,30 @@ export default function LoginPage() {
     }
   };
 
-  const redirectUser = (role?: string) => {
+  const redirectUser = (role?: string, hasCartItems = false) => {
     const ADMIN_ROLES = ['admin', 'store_manager', 'support_agent'];
     if (role && ADMIN_ROLES.includes(role)) {
       navigate('/admin/dashboard');
-    } else {
-      const from = location.state?.from 
-        ? (location.state.from.pathname + (location.state.from.search || '')) 
-        : '/';
-      navigate(from, { replace: true });
+      return;
     }
+
+    let from = location.state?.from;
+
+    // If they have items in the cart, and their destination is not explicitly set, or is the cart page, redirect to checkout
+    if (hasCartItems) {
+      if (!from || from.pathname === '/cart' || from.pathname === '/') {
+        from = { pathname: '/checkout' };
+      }
+    }
+
+    const targetPath = from 
+      ? (from.pathname + (from.search || '')) 
+      : '/';
+
+    navigate(targetPath, { 
+      state: location.state?.checkoutState,
+      replace: true 
+    });
   };
 
   return (

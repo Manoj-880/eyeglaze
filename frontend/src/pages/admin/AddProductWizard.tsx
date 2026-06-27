@@ -432,6 +432,7 @@ export default function AddProductWizard() {
   const [versionHistory, setVersionHistory] = useState<number>(1);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadedProduct, setLoadedProduct] = useState<any | null>(null);
+  const [colorConfigs, setColorConfigs] = useState<Array<{ name: string; hex: string; stock: number }>>([]);
   const [activeLensTypeTab, setActiveLensTypeTab] = useState<string | null>(null);
   const [showAddCustomLensForm, setShowAddCustomLensForm] = useState<string | null>(null);
   const [customLensName, setCustomLensName] = useState('');
@@ -706,6 +707,13 @@ export default function AddProductWizard() {
 
           setAuditLogs(prodRes.data.auditLogs || []);
           setVersionHistory(p.currentVersion || 1);
+          if (p.colors && p.colors.length > 0) {
+            setColorConfigs(p.colors.map((c: any) => ({
+              name: c.name,
+              hex: c.hex || '#A7A7A7',
+              stock: c.stock ?? 50
+            })));
+          }
         } else {
           // Check LocalStorage Draft
           const draft = localStorage.getItem('eyeglaze_add_product_draft');
@@ -780,6 +788,98 @@ export default function AddProductWizard() {
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const primaryColorValue = watch('primaryColor');
+
+  useEffect(() => {
+    const names = (primaryColorValue || '')
+      .split(',')
+      .map((c: string) => c.trim())
+      .filter(Boolean);
+
+    setColorConfigs(prev => {
+      const source = (prev.length === 0 && loadedProduct?.colors?.length > 0)
+        ? loadedProduct.colors.map((c: any) => ({ name: c.name, hex: c.hex || '#A7A7A7', stock: c.stock ?? 50 }))
+        : prev;
+
+      return names.map(name => {
+        const existing = source.find(p => p.name.toLowerCase() === name.toLowerCase());
+        if (existing) {
+          return { ...existing, name };
+        }
+        let hex = '#A7A7A7';
+        const lowerName = name.toLowerCase();
+        if (lowerName === 'black') hex = '#131314';
+        else if (lowerName === 'blue') hex = '#1E3A8A';
+        else if (lowerName === 'brown') hex = '#5C3D2E';
+        else if (lowerName === 'gold') hex = '#D4A04D';
+        else if (lowerName === 'silver') hex = '#E5E7EB';
+        else if (lowerName === 'pink') hex = '#FBCFE8';
+        else if (lowerName === 'red') hex = '#DC2626';
+        else if (lowerName === 'green') hex = '#16A34A';
+        else if (lowerName === 'transparent') hex = '#FFFFFF';
+
+        return { name, hex, stock: 50 };
+      });
+    });
+  }, [primaryColorValue, loadedProduct]);
+
+  const renderColorStockEditor = () => {
+    if (colorConfigs.length === 0) return null;
+    return (
+      <div className="mt-4 p-5 bg-[#18181A] border border-[#2A2A2D] rounded-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-[#2A2A2D]/60 pb-2">
+          <h4 className="text-[#D4A04D] text-xs font-bold uppercase tracking-wider">Configure Stock & Color Codes</h4>
+          <span className="text-[10px] text-gray-400">Total variants: <strong className="text-white">{colorConfigs.length}</strong></span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {colorConfigs.map((cfg, idx) => (
+            <div key={idx} className="flex items-center gap-3 bg-[#0B0B0C] border border-[#2A2A2D] p-3.5 rounded-xl hover:border-zinc-800 transition-colors">
+              <div className="flex-1">
+                <label className="text-gray-400 text-[9px] font-bold uppercase block mb-1">Color: <span className="text-white">{cfg.name}</span></label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="color"
+                    value={cfg.hex.startsWith('#') && cfg.hex.length === 7 ? cfg.hex : '#A7A7A7'}
+                    onChange={(e) => {
+                      const updated = [...colorConfigs];
+                      updated[idx].hex = e.target.value;
+                      setColorConfigs(updated);
+                    }}
+                    className="w-8 h-8 border-none bg-transparent cursor-pointer rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    value={cfg.hex}
+                    onChange={(e) => {
+                      const updated = [...colorConfigs];
+                      updated[idx].hex = e.target.value;
+                      setColorConfigs(updated);
+                    }}
+                    placeholder="#HEX"
+                    className="w-24 bg-[#131314] border border-[#2A2A2D] rounded-lg px-2.5 py-1.5 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="w-28">
+                <label className="text-gray-400 text-[9px] font-bold uppercase block mb-1">Stock Quantity</label>
+                <input
+                  type="number"
+                  value={cfg.stock}
+                  onChange={(e) => {
+                    const updated = [...colorConfigs];
+                    updated[idx].stock = Math.max(0, parseInt(e.target.value) || 0);
+                    setColorConfigs(updated);
+                  }}
+                  className="w-full bg-[#131314] border border-[#2A2A2D] rounded-lg px-3 py-1.5 text-white text-xs font-bold focus:border-[#D4A04D] focus:outline-none transition-colors"
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   // Profit Margin calculation
@@ -1053,44 +1153,20 @@ export default function AddProductWizard() {
         sku = `EG-${namePart}-${randomPart}`;
       }
 
-      // Generate colors array from primaryColor comma-separated string
-      const colorNames = (data.primaryColor || '')
-        .split(',')
-        .map((c: string) => c.trim())
-        .filter(Boolean);
-      
-      const colorsPayload = colorNames.map((name) => {
+      // Generate colors array from colorConfigs state
+      const colorsPayload = colorConfigs.map((cfg) => {
         const existingColor = loadedProduct?.colors?.find(
-          (c: any) => c.name.toLowerCase() === name.toLowerCase()
+          (c: any) => c.name.toLowerCase() === cfg.name.toLowerCase()
         );
-        if (existingColor) {
-          return {
-            name,
-            hex: existingColor.hex,
-            stock: existingColor.stock ?? 50,
-            images: existingColor.images || []
-          };
-        }
-
-        let hex = '#A7A7A7';
-        const lowerName = name.toLowerCase();
-        if (lowerName === 'black') hex = '#131314';
-        else if (lowerName === 'blue') hex = '#1E3A8A';
-        else if (lowerName === 'brown') hex = '#5C3D2E';
-        else if (lowerName === 'gold') hex = '#D4A04D';
-        else if (lowerName === 'silver') hex = '#E5E7EB';
-        else if (lowerName === 'pink') hex = '#FBCFE8';
-        else if (lowerName === 'red') hex = '#DC2626';
-        else if (lowerName === 'green') hex = '#16A34A';
-        else if (lowerName === 'transparent') hex = '#FFFFFF';
-        
         return {
-          name,
-          hex,
-          stock: 50,
-          images: []
+          name: cfg.name,
+          hex: cfg.hex || '#A7A7A7',
+          stock: cfg.stock ?? 50,
+          images: existingColor ? (existingColor.images || []) : []
         };
       });
+
+      const colorNames = colorConfigs.map(c => c.name);
 
       const payload = {
         ...data,
@@ -1644,46 +1720,49 @@ export default function AddProductWizard() {
               </div>
 
               {isSunglasses && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Frame Size (Multi-select) */}
-                  <div>
-                    <MultiSelectDropdown
-                      label="Frame Sizes *"
-                      options={
-                        isKids
-                          ? [
-                              { value: 'Small', label: 'Juniors | 5 to 8 years' },
-                              { value: 'Medium', label: 'Tweens | 8 to 12 years' },
-                              { value: 'Large', label: 'Teens | 12 to 17 years' }
-                            ]
-                          : [
-                              { value: 'Small', label: 'Small' },
-                              { value: 'Medium', label: 'Medium' },
-                              { value: 'Large', label: 'Large' }
-                            ]
-                      }
-                      selectedValues={formValues.availableSizes || []}
-                      onChange={(values) => {
-                        setValue('availableSizes', values as any);
-                        if (values.length > 0) {
-                          setValue('frameSize', values[0] as any);
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Frame Size (Multi-select) */}
+                    <div>
+                      <MultiSelectDropdown
+                        label="Frame Sizes *"
+                        options={
+                          isKids
+                            ? [
+                                { value: 'Small', label: 'Juniors | 5 to 8 years' },
+                                { value: 'Medium', label: 'Tweens | 8 to 12 years' },
+                                { value: 'Large', label: 'Teens | 12 to 17 years' }
+                              ]
+                            : [
+                                { value: 'Small', label: 'Small' },
+                                { value: 'Medium', label: 'Medium' },
+                                { value: 'Large', label: 'Large' }
+                              ]
                         }
-                      }}
-                      placeholder="Select sizes..."
-                    />
-                  </div>
+                        selectedValues={formValues.availableSizes || []}
+                        onChange={(values) => {
+                          setValue('availableSizes', values as any);
+                          if (values.length > 0) {
+                            setValue('frameSize', values[0] as any);
+                          }
+                        }}
+                        placeholder="Select sizes..."
+                      />
+                    </div>
 
-                  {/* Frame Color (comma-separated list) */}
-                  <div>
-                    <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Colors (comma-separated)</label>
-                    <input
-                      type="text"
-                      {...register('primaryColor')}
-                      placeholder="e.g. Black, Brown, Gold"
-                      className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
-                    />
+                    {/* Frame Color (comma-separated list) */}
+                    <div>
+                      <label className="text-gray-400 text-[10px] font-bold uppercase tracking-wider block mb-1">Frame Colors (comma-separated)</label>
+                      <input
+                        type="text"
+                        {...register('primaryColor')}
+                        placeholder="e.g. Black, Brown, Gold"
+                        className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-4 py-2.5 text-white text-sm focus:border-[#D4A04D] focus:outline-none font-bold"
+                      />
+                    </div>
                   </div>
-                </div>
+                  {renderColorStockEditor()}
+                </>
               )}
 
               {/* Descriptions */}
@@ -1803,6 +1882,7 @@ export default function AddProductWizard() {
                       />
                     </div>
                   </div>
+                  {renderColorStockEditor()}
 
                   {/* Frame Size Selector */}
                   <div className="space-y-3 pt-4 border-t border-[#2A2A2D]/40">
@@ -2197,6 +2277,7 @@ export default function AddProductWizard() {
                   />
                 </div>
               </div>
+              {renderColorStockEditor()}
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Country of Origin */}
@@ -3129,150 +3210,8 @@ export default function AddProductWizard() {
             </div>
           </div>
 
-          {/* Price engine calculator panel */}
-          <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl space-y-5">
-            <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-[#D4A04D] border-b border-[#2A2A2D] pb-2">
-              Price Engine Simulator
-            </h3>
-            
-            <div className="space-y-3">
-              {/* Simulator Inputs */}
-              <div>
-                <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Select Lens Option</label>
-                <select
-                  value={engineLens}
-                  onChange={(e) => setEngineLens(e.target.value)}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none"
-                >
-                  {derivedCompatibleLensTypes.map(l => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                  {derivedCompatibleLensTypes.length === 0 && <option>None Compatible</option>}
-                </select>
-              </div>
 
-              <div>
-                <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Select Thickness Level</label>
-                <select
-                  value={engineThickness}
-                  onChange={(e) => setEngineThickness(e.target.value)}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none"
-                >
-                  {formValues.thicknessPricing?.map(t => (
-                    <option key={t.thickness} value={t.thickness}>{t.thickness} index</option>
-                  ))}
-                </select>
-              </div>
 
-              <div>
-                <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Choose Coatings</label>
-                <div className="space-y-1.5 select-none pt-1">
-                  {formValues.coatingPricing?.filter(c => c.isActive).map(c => {
-                    const isChecked = engineCoatings.includes(c.coatingName);
-                    return (
-                      <label key={c.coatingName} className="flex items-center gap-2 text-[10px] text-gray-400 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setEngineCoatings([...engineCoatings, c.coatingName]);
-                            } else {
-                              setEngineCoatings(engineCoatings.filter(item => item !== c.coatingName));
-                            }
-                          }}
-                          className="accent-[#D4A04D]"
-                        />
-                        <span>{c.coatingName} (+₹{c.regularPrice})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-gray-500 text-[9px] font-bold uppercase block mb-1">Apply Coupon Code</label>
-                <select
-                  value={engineCoupon}
-                  onChange={(e) => setEngineCoupon(e.target.value)}
-                  className="w-full bg-[#0B0B0C] border border-[#2A2A2D] rounded-xl px-3 py-2 text-white text-xs focus:outline-none text-yellow-400 font-bold"
-                >
-                  <option value="">No Coupon</option>
-                  <option value="SAVE10">SAVE10 (10% Off)</option>
-                  <option value="FLAT500">FLAT500 (Flat ₹500 Off)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Calculations Breakdown */}
-            <div className="border-t border-[#2A2A2D] pt-4 space-y-2.5 text-xs font-semibold text-gray-300">
-              <div className="flex justify-between items-center">
-                <span>Frame Price:</span>
-                <span className="text-white font-bold">₹{simResult.frame}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Lens Option:</span>
-                <span className="text-white">₹{simResult.lens}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Thickness Index:</span>
-                <span className="text-white">₹{simResult.thickness}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Coatings Upgrade:</span>
-                <span className="text-white">₹{simResult.coatings}</span>
-              </div>
-
-              {simResult.memberDisc > 0 && (
-                <div className="flex justify-between items-center text-yellow-500">
-                  <span>Gold Member Discount:</span>
-                  <span>-₹{simResult.memberDisc}</span>
-                </div>
-              )}
-              {simResult.couponDisc > 0 && (
-                <div className="flex justify-between items-center text-yellow-500">
-                  <span>Coupon discount:</span>
-                  <span>-₹{simResult.couponDisc}</span>
-                </div>
-              )}
-              {simResult.cashback > 0 && (
-                <div className="flex justify-between items-center text-green-400">
-                  <span>Cashback Reward:</span>
-                  <span>₹{simResult.cashback} (points)</span>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center border-t border-[#2A2A2D] pt-3 text-sm font-black text-white">
-                <span>Payable Amount:</span>
-                <span className="text-[#D4A04D] text-base font-black">₹{simResult.total}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Audit Logs History (Only visible in edit mode) */}
-          {isEditMode && auditLogs.length > 0 && (
-            <div className="bg-[#131314] border border-[#2A2A2D] rounded-2xl p-6 shadow-xl space-y-4">
-              <h3 className="text-white text-xs font-extrabold uppercase tracking-wider text-gray-400 border-b border-[#2A2A2D] pb-2">
-                Version Audit Log
-              </h3>
-              <div className="space-y-3.5 max-h-56 overflow-y-auto pr-1">
-                {auditLogs.map((log, idx) => (
-                  <div key={log._id || idx} className="text-[10px] border-b border-zinc-800/40 pb-2 space-y-1">
-                    <div className="flex justify-between items-center font-bold">
-                      <span className="text-[#D4A04D] capitalize">{log.action}</span>
-                      <span className="text-gray-500">v{log.version}</span>
-                    </div>
-                    <div className="text-gray-400 leading-normal">
-                      Performed by <span className="font-semibold text-white">{log.performedByName}</span>
-                    </div>
-                    <div className="text-gray-600 font-mono">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </aside>
       </main>
     </div>

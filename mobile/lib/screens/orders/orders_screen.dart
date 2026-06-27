@@ -4,6 +4,7 @@ import '../../core/theme.dart';
 import '../../models/order.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import 'order_details_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -37,10 +38,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Color _statusColor(String status) {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'delivered': return AppColors.success;
       case 'shipped': return Colors.blue;
-      case 'processing': return Colors.orange;
+      case 'processing':
+      case 'confirmed': return Colors.orange;
       case 'cancelled': return AppColors.error;
       default: return AppColors.muted;
     }
@@ -52,6 +54,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        scrolledUnderElevation: 0,
         title: const Text('My Orders', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
       ),
@@ -78,50 +81,57 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     itemCount: _orders.length,
                     itemBuilder: (_, i) {
                       final order = _orders[i];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(order.orderNumber, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 14)),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: _statusColor(order.status).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: _statusColor(order.status).withValues(alpha: 0.4)),
-                                  ),
-                                  child: Text(order.status.toUpperCase(), style: TextStyle(color: _statusColor(order.status), fontSize: 11, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => OrderDetailsScreen(order: order),
                             ),
-                            const SizedBox(height: 8),
-                            Text('${order.items.length} item(s)', style: AppTextStyles.muted),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Text('Total: ₹${order.total.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 15)),
-                                const Spacer(),
-                                GestureDetector(
-                                  onTap: () {},
-                                  child: Container(
+                          );
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(order.orderNumber, style: const TextStyle(color: AppColors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: _statusColor(order.status).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: _statusColor(order.status).withValues(alpha: 0.4)),
+                                    ),
+                                    child: Text(order.status.toUpperCase(), style: TextStyle(color: _statusColor(order.status), fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text('${order.items.length} item(s)', style: AppTextStyles.muted),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Text('Total: ₹${order.total.toInt()}', style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 15)),
+                                  const Spacer(),
+                                  Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                                     decoration: BoxDecoration(border: Border.all(color: AppColors.gold), borderRadius: BorderRadius.circular(6)),
                                     child: const Text('TRACK', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 11)),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },

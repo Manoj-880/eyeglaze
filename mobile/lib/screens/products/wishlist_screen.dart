@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -6,8 +7,8 @@ import '../../core/app_config.dart';
 import '../../models/product.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/socket_service.dart';
 import 'product_detail_screen.dart';
-import '../home/home_screen.dart';
 
 class WishlistScreen extends StatefulWidget {
   final bool isStandalonePage;
@@ -25,6 +26,32 @@ class _WishlistScreenState extends State<WishlistScreen> {
   void initState() {
     super.initState();
     _loadWishlist();
+
+    // Connect socket listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final socketService = context.read<SocketService>();
+        socketService.socket?.on('product_changed', _onProductChanged);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    try {
+      final socketService = context.read<SocketService>();
+      socketService.socket?.off('product_changed', _onProductChanged);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _onProductChanged(dynamic data) {
+    if (kDebugMode) {
+      print('Socket: product_changed event received in WishlistScreen: $data');
+    }
+    if (mounted) {
+      _loadWishlist();
+    }
   }
 
   Future<void> _loadWishlist() async {
@@ -155,7 +182,6 @@ class _WishlistScreenState extends State<WishlistScreen> {
                           ),
                         ).then((_) {
                           _loadWishlist();
-                          HomeScreen.state?.loadCartCount();
                         });
                       },
                     );
