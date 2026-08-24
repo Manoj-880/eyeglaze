@@ -64,8 +64,10 @@ export default function ProductFilters() {
     const params = new URLSearchParams();
     const search = searchParams.get('search');
     const sort = searchParams.get('sort');
+    const category = searchParams.get('category');
     if (search) params.set('search', search);
     if (sort) params.set('sort', sort);
+    if (category) params.set('category', category);
     navigate(`/products?${params.toString()}`);
   };
 
@@ -181,32 +183,6 @@ export default function ProductFilters() {
         </div>
       </div>
 
-      {/* Categories Section */}
-      <div className="border-b border-[#2A2A2D]/40 pb-2">
-        {renderSectionHeader('Category', 'category')}
-        {openSections.category && (
-          <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-none animate-fade-in">
-            {categoriesList.map(cat => {
-              const isChecked = searchParams.get('category') === cat.slug;
-              return (
-                <label key={cat._id} className="flex items-center gap-2.5 cursor-pointer group text-xs">
-                  <input
-                    type="radio"
-                    name="category"
-                    checked={isChecked}
-                    onClick={() => handleCategoryChange(cat.slug)}
-                    onChange={() => {}}
-                    className="accent-[#D4A04D] w-3.5 h-3.5 cursor-pointer"
-                  />
-                  <span className={`text-[#A7A7A7] group-hover:text-white transition-colors ${isChecked ? 'text-[#D4A04D] font-bold' : ''}`}>
-                    {cat.name}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
 
       {/* Sub-Category Section */}
       {subCategories.length > 0 && (
