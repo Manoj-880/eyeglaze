@@ -236,6 +236,8 @@ const wizardSchema = z.object({
   })).default([])
 });
 
+type WizardFormData = z.infer<typeof wizardSchema>;
+
 type ContactPackDraft = {
   packName: string;
   price: number;

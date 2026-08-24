@@ -61,7 +61,7 @@ type CategorySeed = {
   collections?: CollectionSeed[];
 };
 
-function withImageFlags<T extends { bannerImage?: string; bannerImageEnabled?: boolean }>(data: T) {
+function withImageFlags<T extends { bannerImage?: string; bannerImageEnabled?: boolean; status?: string }>(data: T) {
   return {
     ...data,
     bannerImageEnabled: data.bannerImageEnabled ?? Boolean(data.bannerImage),

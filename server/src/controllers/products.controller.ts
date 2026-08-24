@@ -460,7 +460,7 @@ export async function getProductById(req: Request, res: Response) {
       });
     }
 
-    const productObj = product.toObject();
+    const productObj: any = product.toObject();
     productObj.contactPackSiblings = productObj.contactPackGroupId
       ? await findContactPackSiblings(productObj.contactPackGroupId)
       : [];

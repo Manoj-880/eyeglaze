@@ -139,7 +139,7 @@ export async function createOrder(req: Request, res: Response) {
         offerType,
         discountApplied,
         isFreeItem: false,
-        _oneRupee: offerType === 'oneRupeeFrame',
+        _oneRupee: (offerType as string) === 'oneRupeeFrame',
       };
     });
 

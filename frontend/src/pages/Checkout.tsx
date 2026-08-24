@@ -14,6 +14,7 @@ interface CartItem {
   sku: string;
   color: string;
   lens?: string;
+  lensType?: string;
   framePrice: number;
   lensPrice: number;
   fittingCharge: number;

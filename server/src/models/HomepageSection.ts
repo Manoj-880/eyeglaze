@@ -170,7 +170,7 @@ export async function expandEyeglazeEditCards() {
     await section.save();
     if (!rest.length) continue;
     await HomepageSection.insertMany(
-      rest.map((item, index) => ({
+      rest.map((item: any, index: number) => ({
         sectionType: 'eyeglaze_edit',
         position: section.position,
         displayOrder: (section.displayOrder || 0) + index + 1,

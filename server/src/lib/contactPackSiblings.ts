@@ -280,8 +280,8 @@ export async function findCollapsedPackProducts(
   ];
 
   const [products, countRows] = await Promise.all([
-    Product.aggregate(listPipeline),
-    Product.aggregate(countPipeline),
+    Product.aggregate(listPipeline as any),
+    Product.aggregate(countPipeline as any),
   ]);
   const total = countRows[0]?.total || 0;
   return { products, total };

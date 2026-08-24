@@ -1903,7 +1903,7 @@ export default function UserLayout() {
                   className="flex-1 bg-[#1E1E1E] border border-[#2A2A2D] rounded-xl px-4 py-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#D4A04D]"
                 />
                 <button
-                  onClick={handleSendChat}
+                  onClick={() => handleSendChat()}
                   className="bg-[#D4A04D] text-black hover:bg-[#C8923E] p-3 rounded-xl transition-colors flex items-center justify-center font-bold border-none cursor-pointer"
                 >
                   <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">

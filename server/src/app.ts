@@ -107,7 +107,7 @@ app.use('/images', express.static(path.join(process.cwd(), 'public/images')));
 app.get('/sitemap.xml', async (req, res, next) => {
   try {
     await connectDB();
-    const products = await Product.find(STOREFRONT_PRODUCT_FILTER).select('_id updatedAt').lean();
+    const products = await Product.find(STOREFRONT_PRODUCT_FILTER as any).select('_id updatedAt').lean();
     const allowedOrigins = process.env.CLIENT_URL
       ? process.env.CLIENT_URL.split(',').map((url) => url.trim())
       : ['http://localhost:5173', 'https://web.eyeglaze.in'];
